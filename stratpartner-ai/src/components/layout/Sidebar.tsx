@@ -66,6 +66,7 @@ export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = 
         { label: 'Tasks', href: `/dashboard/${orgSlug}/tasks` },
         { label: 'Routines', href: `/dashboard/${orgSlug}/routines` },
         { label: 'Interviews', href: `/dashboard/${orgSlug}/interviews` },
+        { label: 'Meetings', href: `/dashboard/${orgSlug}/meetings` },
       ],
     },
     {
