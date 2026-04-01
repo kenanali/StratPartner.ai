@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
           {
             type: 'webhook',
             url: `${process.env.NEXT_PUBLIC_APP_URL}/api/meetings/webhook`,
-            events: ['transcript.data', 'bot.status_change'],
+            events: ['transcript.data'],
           },
         ],
       },
