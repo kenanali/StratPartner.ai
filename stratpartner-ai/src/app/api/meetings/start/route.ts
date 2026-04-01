@@ -19,9 +19,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Recall.ai not configured' }, { status: 503 })
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
   const platform = detectPlatform(meetingUrl)
 
   // Deploy bot via Recall.ai
