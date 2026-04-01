@@ -1,128 +1,200 @@
-import { getSupabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 
-export default async function Home() {
-  const supabase = getSupabaseAdmin()
-  const { data: orgs } = await supabase.from('orgs').select('id, slug, name')
-  const { data: projects } = orgs?.length
-    ? await supabase.from('projects').select('id, name, org_id').eq('org_id', orgs[0].id).limit(3)
-    : { data: [] }
-  const { data: deliverables } = projects?.length
-    ? await supabase.from('deliverables').select('id, title, project_id').eq('project_id', projects[0].id).limit(2)
-    : { data: [] }
-
-  const org = orgs?.[0]
-  const project = projects?.[0]
-  const deliverable = deliverables?.[0]
-
-  const sections = [
-    {
-      label: 'Auth',
-      links: [
-        { href: '/login', label: 'Login (magic link)' },
-        { href: '/gate', label: 'Password gate' },
-        { href: '/admin', label: 'Admin — org list' },
-        ...(org ? [{ href: `/admin/orgs/${org.slug}`, label: `Admin — ${org.name}` }] : []),
-      ],
-    },
-    ...(org
-      ? [
-          {
-            label: `Dashboard — ${org.name}`,
-            links: [
-              { href: `/dashboard/${org.slug}`, label: 'Dashboard (home + first-run wizard)' },
-              { href: `/dashboard/${org.slug}/activity`, label: 'Activity feed' },
-              { href: `/dashboard/${org.slug}/inbox`, label: '📬 Inbox (agent notifications)' },
-              { href: `/dashboard/${org.slug}/memory`, label: '🧠 Memory (org + project cards)' },
-              { href: `/dashboard/${org.slug}/projects`, label: 'Projects' },
-              { href: `/dashboard/${org.slug}/tasks`, label: 'Tasks (kanban)' },
-              { href: `/dashboard/${org.slug}/meetings`, label: 'Meetings (Recall.ai)' },
-              { href: `/dashboard/${org.slug}/sources`, label: 'Sources (RAG files)' },
-              { href: `/dashboard/${org.slug}/skills`, label: 'Skills catalog' },
-              { href: `/dashboard/${org.slug}/routines`, label: 'Routines' },
-              { href: `/dashboard/${org.slug}/agents`, label: 'Agents (8 roles)' },
-            ],
-          },
-          {
-            label: 'Chat',
-            links: [
-              { href: `/chat/${org.slug}`, label: 'Chat hub (session list + new chat)' },
-            ],
-          },
-          ...(project
-            ? [
-                {
-                  label: `Project — ${project.name}`,
-                  links: [
-                    { href: `/dashboard/${org.slug}/projects/${project.id}`, label: 'Project overview' },
-                    { href: `/dashboard/${org.slug}/projects/${project.id}/deliverables`, label: 'Deliverables library' },
-                    ...(deliverable
-                      ? [{ href: `/dashboard/${org.slug}/projects/${project.id}/deliverables/${deliverable.id}`, label: `Deliverable — ${deliverable.title.slice(0, 40)}` }]
-                      : []
-                    ),
-                  ],
-                },
-              ]
-            : []
-          ),
-          {
-            label: 'Onboarding (teammate invite)',
-            links: [
-              { href: `/onboard/${org.slug}`, label: 'Onboard form (no auth — shareable link)' },
-            ],
-          },
-        ]
-      : []),
-    {
-      label: 'API',
-      links: [
-        { href: '/api/health', label: 'GET /api/health' },
-        { href: `/api/projects?orgId=${org?.id ?? ''}`, label: 'GET /api/projects' },
-        { href: `/api/org-skills?org_id=${org?.id ?? ''}`, label: 'GET /api/org-skills' },
-        { href: `/api/messages?org_id=${org?.id ?? ''}`, label: 'GET /api/messages' },
-        { href: `/api/inbox?orgId=${org?.id ?? ''}`, label: 'GET /api/inbox' },
-        { href: `/api/inbox/count?orgId=${org?.id ?? ''}`, label: 'GET /api/inbox/count' },
-        { href: `/api/memory?orgId=${org?.id ?? ''}`, label: 'GET /api/memory' },
-        { href: `/api/deliverables?orgId=${org?.id ?? ''}`, label: 'GET /api/deliverables' },
-        { href: `/api/sessions?orgId=${org?.id ?? ''}`, label: 'GET /api/sessions' },
-      ],
-    },
-  ]
-
+export default function Home() {
   return (
-    <main className="min-h-screen bg-gray-50 px-6 py-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">StratPartner.ai</h1>
-          <p className="mt-1 text-sm text-gray-500">Test navigation — auth disabled</p>
-        </div>
+    <div className="min-h-screen bg-white text-[#111111] font-sans">
 
-        <div className="space-y-6">
-          {sections.map((section) => (
-            <div key={section.label}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                {section.label}
-              </p>
-              <div className="rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
-                {section.links.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors"
-                  >
-                    <span>{link.label}</span>
-                    <span className="text-gray-300 text-xs font-mono truncate ml-4 max-w-xs">{link.href}</span>
-                  </Link>
-                ))}
+      {/* Nav */}
+      <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        <div className="mx-auto max-w-4xl px-6 h-14 flex items-center justify-between">
+          <span className="font-display font-bold text-base tracking-tight">StratPartner</span>
+          <nav className="flex items-center gap-6 text-sm">
+            <Link href="/explore" className="text-gray-500 hover:text-[#111111] transition-colors">
+              Explore
+            </Link>
+            <Link
+              href="/login"
+              className="text-[#111111] font-medium hover:text-[#8B5CF6] transition-colors"
+            >
+              Sign in →
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-4xl px-6">
+
+        {/* What it is */}
+        <section className="pt-20 pb-16 border-b border-gray-100">
+          <h1 className="font-display text-4xl font-bold leading-tight">StratPartner</h1>
+          <p className="mt-3 text-lg text-gray-500 font-medium">
+            An AI strategy partner for consultants and leadership teams.
+          </p>
+          <p className="mt-5 text-base text-gray-600 max-w-2xl leading-relaxed">
+            It combines a research-grade chat interface, a library of strategy frameworks, and
+            meeting intelligence — so strategy work that used to take days can happen in a single
+            conversation.
+          </p>
+        </section>
+
+        {/* Problems */}
+        <section className="py-16 border-b border-gray-100">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-widest text-gray-400 mb-8">
+            What problems it solves
+          </h2>
+          <ol className="space-y-8">
+            <li className="flex gap-5">
+              <span className="text-[#8B5CF6] font-display font-bold text-lg shrink-0 w-5">1</span>
+              <div>
+                <p className="font-semibold text-[#111111]">Strategy work takes too long.</p>
+                <p className="mt-1 text-gray-500 text-sm leading-relaxed">
+                  Research, synthesis, and structured output used to require a team of analysts.
+                  StratPartner runs the work directly in chat.
+                </p>
               </div>
-            </div>
-          ))}
-        </div>
+            </li>
+            <li className="flex gap-5">
+              <span className="text-[#8B5CF6] font-display font-bold text-lg shrink-0 w-5">2</span>
+              <div>
+                <p className="font-semibold text-[#111111]">Context gets lost.</p>
+                <p className="mt-1 text-gray-500 text-sm leading-relaxed">
+                  Decisions made in meetings, context shared in documents, insights from past
+                  projects — StratPartner captures all of it and uses it in every future
+                  conversation.
+                </p>
+              </div>
+            </li>
+            <li className="flex gap-5">
+              <span className="text-[#8B5CF6] font-display font-bold text-lg shrink-0 w-5">3</span>
+              <div>
+                <p className="font-semibold text-[#111111]">Frameworks are underused.</p>
+                <p className="mt-1 text-gray-500 text-sm leading-relaxed">
+                  Most teams know what a customer journey map or SWOT analysis is, but rarely run
+                  them rigorously. StratPartner runs them completely, with your actual data.
+                </p>
+              </div>
+            </li>
+          </ol>
+        </section>
 
-        <p className="mt-8 text-xs text-gray-400">
-          Auth + password gate are disabled. Re-enable middleware before going live.
-        </p>
-      </div>
-    </main>
+        {/* Core value */}
+        <section className="py-16 border-b border-gray-100">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-widest text-gray-400 mb-6">
+            The core idea
+          </h2>
+          <p className="text-base text-gray-600 max-w-2xl leading-relaxed">
+            A strategy partner that gets smarter the more you work with it. StratPartner learns your
+            organisation — your market, your team, your priorities — and uses that memory in every
+            conversation. The more you use it, the more context it carries.
+          </p>
+        </section>
+
+        {/* How it works */}
+        <section className="py-16 border-b border-gray-100">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-widest text-gray-400 mb-8">
+            How it works
+          </h2>
+          <div className="space-y-8">
+            {[
+              {
+                step: '01',
+                title: 'Describe your organisation and goals.',
+                body: 'Set up a project, share context, and StratPartner starts building an understanding of your business.',
+              },
+              {
+                step: '02',
+                title: 'Work in the chat.',
+                body: 'Ask questions, request research, run frameworks. StratPartner searches the web when it needs to, cites sources, and streams answers in real time.',
+              },
+              {
+                step: '03',
+                title: 'Every output is saved.',
+                body: 'Deliverables — competitive analyses, personas, journey maps — are saved to your project and used as context in future conversations.',
+              },
+            ].map(({ step, title, body }) => (
+              <div key={step} className="flex gap-6">
+                <span className="font-mono text-xs text-gray-300 pt-0.5 shrink-0 w-6">{step}</span>
+                <div>
+                  <p className="font-semibold text-[#111111] text-sm">{title}</p>
+                  <p className="mt-1 text-gray-500 text-sm leading-relaxed">{body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Features */}
+        <section className="py-16 border-b border-gray-100">
+          <h2 className="font-display text-sm font-semibold uppercase tracking-widest text-gray-400 mb-8">
+            Features
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {[
+              {
+                title: 'Research-grade chat',
+                body: 'Searches the web in real time — competitor filings, job postings, pricing pages, news. Every source linked.',
+              },
+              {
+                title: 'Strategy skills',
+                body: '40+ built-in frameworks activated by a command — /journey-map, /persona-build, /biz-case. Runs the full framework with your data.',
+              },
+              {
+                title: 'Meeting intelligence',
+                body: 'Paste a Zoom, Meet, or Teams URL. StratPartner joins, transcribes, extracts decisions and action items, and sends a briefing when it ends. Powered by Recall.ai.',
+              },
+              {
+                title: 'Org memory',
+                body: 'Every fact, decision, and insight is captured and categorised — surfaced automatically in the right conversation.',
+              },
+              {
+                title: 'Deliverables library',
+                body: 'Every structured output is saved to your project — searchable, shareable, and used as context in future chats.',
+              },
+              {
+                title: 'Multi-project',
+                body: 'Run separate projects for different clients, products, or initiatives. Each has its own memory and deliverables.',
+              },
+            ].map(({ title, body }) => (
+              <div
+                key={title}
+                className="border-l-2 border-[#8B5CF6] pl-4 py-1"
+              >
+                <p className="font-semibold text-sm text-[#111111]">{title}</p>
+                <p className="mt-1 text-xs text-gray-500 leading-relaxed">{body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Built with */}
+        <section className="py-12">
+          <p className="text-xs text-gray-400">
+            Built on:{' '}
+            <span className="text-gray-500">Claude (Anthropic)</span>
+            {' · '}
+            <span className="text-gray-500">Recall.ai</span>
+            {' · '}
+            <span className="text-gray-500">VAPI</span>
+            {' · '}
+            <span className="text-gray-500">Brave Search</span>
+            {' · '}
+            <span className="text-gray-500">Supabase</span>
+          </p>
+        </section>
+
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100">
+        <div className="mx-auto max-w-4xl px-6 h-12 flex items-center justify-between">
+          <span className="text-xs text-gray-400 font-display font-semibold">StratPartner</span>
+          <nav className="flex items-center gap-5 text-xs text-gray-400">
+            <Link href="/explore" className="hover:text-gray-600 transition-colors">Explore</Link>
+            <Link href="/login" className="hover:text-gray-600 transition-colors">Sign in</Link>
+          </nav>
+        </div>
+      </footer>
+
+    </div>
   )
 }

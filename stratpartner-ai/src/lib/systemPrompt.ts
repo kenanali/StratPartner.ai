@@ -79,11 +79,17 @@ No relevant excerpts found in uploaded documents for this query.
     .map((s) => `- /${s.slug}: ${s.name} — ${s.description}`)
     .join('\n')
 
+  const nextSkillsInstruction = `
+When you finish your response, if 2–3 specific skills from the list above would be genuinely valuable as the user's next action, add this on its own line at the very end (no code block, no explanation):
+NEXT_SKILLS: skill-slug-1, skill-slug-2
+Only include this when it adds real value. It will be stripped and rendered as clickable action buttons.`
+
   if (detectedSkill) {
     parts.push(`[AVAILABLE SKILLS]
 You have access to the following strategy frameworks. Run the active skill in full now.
 
 ${skillsIndex}
+${nextSkillsInstruction}
 
 [ACTIVE SKILL: ${detectedSkill.name}]
 ${detectedSkill.content}
@@ -94,6 +100,7 @@ ${detectedSkill.content}
 You have access to the following strategy frameworks. If the user explicitly triggers one with /{slug} or if their request clearly calls for it, run that framework in full.
 
 ${skillsIndex}
+${nextSkillsInstruction}
 [/AVAILABLE SKILLS]`)
   }
 

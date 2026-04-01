@@ -55,6 +55,7 @@ function getTypeMeta(type: string): TypeMeta {
 function renderInline(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[([^\]]+)\]\(([^)]+)\))/)
   return parts.map((part, i) => {
+    if (!part) return null
     if (part.startsWith('**') && part.endsWith('**'))
       return <strong key={i} className="font-semibold text-primary">{part.slice(2, -2)}</strong>
     if (part.startsWith('*') && part.endsWith('*'))

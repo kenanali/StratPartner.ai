@@ -161,6 +161,9 @@ export default function SessionsHub({ orgId, orgName, orgSlug, initialSessionId 
             orgName={orgName}
             orgSlug={orgSlug}
             sessionId={activeSessionId}
+            onSessionTitle={(title) => {
+              setSessions(prev => prev.map(s => s.id === activeSessionId ? { ...s, title } : s))
+            }}
           />
         ) : (
           <EmptyState onNewChat={createSession} isCreating={isCreating} />

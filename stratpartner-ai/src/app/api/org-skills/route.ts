@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('org_skills')
-    .select('skills(slug, title)')
+    .select('skills(slug, title, description)')
     .eq('org_id', orgId)
     .eq('enabled', true)
 

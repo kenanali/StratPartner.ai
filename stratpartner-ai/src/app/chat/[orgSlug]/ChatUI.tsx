@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback, DragEvent, ClipboardEvent } from 'react'
+import { useEffect, useRef, useState, useCallback, ClipboardEvent } from 'react'
 
 interface Deliverable {
   id: string
@@ -9,16 +9,25 @@ interface Deliverable {
   content: string
 }
 
+interface ToolCallEntry {
+  name: string
+  input: Record<string, unknown>
+  status: 'running' | 'done'
+}
+
 interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   attachments?: PendingAttachment[]
   deliverable?: Deliverable
+  toolCalls?: ToolCallEntry[]
+  suggestedSkills?: string[]
 }
 
 interface Skill {
   slug: string
   title: string
+  description?: string
 }
 
 interface PendingAttachment {
@@ -42,6 +51,7 @@ interface ChatUIProps {
   orgSlug: string
   sessionId: string
   projectId?: string
+  onSessionTitle?: (title: string) => void
 }
 
 // File type classification
@@ -117,7 +127,7 @@ function toBase64(file: File): Promise<string> {
 // ---------------------------------------------------------------------------
 
 function renderInline(text: string): React.ReactNode {
-  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[([^\]]+)\]\(([^)]+)\))/)
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[([^\]]+)\]\(([^)]+)\)|https?:\/\/[^\s<>")\]]+)/)
   return parts.map((part, i) => {
     if (!part) return null
     if (part.startsWith('**') && part.endsWith('**'))
@@ -126,6 +136,12 @@ function renderInline(text: string): React.ReactNode {
       return <em key={i} className="italic">{part.slice(1, -1)}</em>
     if (part.startsWith('`') && part.endsWith('`'))
       return <code key={i} className="font-mono text-xs bg-gray-100 text-primary px-1.5 py-0.5 rounded">{part.slice(1, -1)}</code>
+    if (part.startsWith('[') && part.includes('](')) {
+      const m = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/)
+      if (m) return <a key={i} href={m[2]} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-accent/80 break-all">{m[1]}</a>
+    }
+    if (part.startsWith('http://') || part.startsWith('https://'))
+      return <a key={i} href={part} target="_blank" rel="noopener noreferrer" className="text-accent underline underline-offset-2 hover:text-accent/80 break-all">{part}</a>
     return part
   })
 }
@@ -170,10 +186,65 @@ function SimpleMarkdown({ content }: { content: string }) {
 }
 
 // ---------------------------------------------------------------------------
+// Tool call UI
+// ---------------------------------------------------------------------------
+
+function toolLabel(name: string, input: Record<string, unknown>): string {
+  if (name === 'web_search') return `Search: "${String(input.query ?? '').slice(0, 50)}"`
+  if (name === 'fetch_url') {
+    try { return `Read: ${new URL(String(input.url)).hostname}` } catch { return `Read: ${String(input.url).slice(0, 40)}` }
+  }
+  return name
+}
+
+function toolIndicatorText(tool: ToolCallEntry): string {
+  if (tool.name === 'web_search') return `Searching "${String(tool.input.query ?? '').slice(0, 45)}"…`
+  if (tool.name === 'fetch_url') {
+    try { return `Reading ${new URL(String(tool.input.url)).hostname}…` } catch { return 'Fetching page…' }
+  }
+  return 'Working…'
+}
+
+function ToolCallCard({ call }: { call: ToolCallEntry }) {
+  const [elapsed, setElapsed] = useState(0)
+  const isSearch = call.name === 'web_search'
+
+  useEffect(() => {
+    if (call.status !== 'running') return
+    setElapsed(0)
+    const t = setInterval(() => setElapsed(s => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [call.status])
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-all ${
+      call.status === 'running'
+        ? 'border-accent/30 bg-accent/5 text-accent'
+        : 'border-gray-200 bg-gray-50 text-gray-400'
+    }`}>
+      {call.status === 'running' ? (
+        <svg className="h-3 w-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      ) : (
+        <svg className="h-3 w-3 text-success shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      )}
+      <span>{isSearch ? '🔍' : '🌐'} {toolLabel(call.name, call.input)}</span>
+      {call.status === 'running' && elapsed > 0 && (
+        <span className="opacity-60 tabular-nums">{elapsed}s</span>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }: ChatUIProps) {
+export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId, onSessionTitle }: ChatUIProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -182,10 +253,12 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
   const [error, setError] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
+  const [slashHighlight, setSlashHighlight] = useState(0)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const userScrolledUp = useRef(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const dragCounter = useRef(0)
@@ -272,24 +345,48 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
     }
   }, [orgId, projectId])
 
-  // Drag and drop
-  const onDragEnter = useCallback((e: DragEvent) => {
-    e.preventDefault()
-    dragCounter.current++
-    setIsDragging(true)
-  }, [])
-  const onDragLeave = useCallback((e: DragEvent) => {
-    e.preventDefault()
-    dragCounter.current--
-    if (dragCounter.current === 0) setIsDragging(false)
-  }, [])
-  const onDragOver = useCallback((e: DragEvent) => { e.preventDefault() }, [])
-  const onDrop = useCallback((e: DragEvent) => {
-    e.preventDefault()
-    dragCounter.current = 0
-    setIsDragging(false)
-    const files = Array.from(e.dataTransfer.files)
-    if (files.length) addFiles(files)
+  // Drag and drop — use native listeners to avoid React synthetic event issues
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const onDragEnter = (e: globalThis.DragEvent) => {
+      e.preventDefault()
+      dragCounter.current++
+      setIsDragging(true)
+    }
+    const onDragLeave = (e: globalThis.DragEvent) => {
+      e.preventDefault()
+      dragCounter.current--
+      if (dragCounter.current <= 0) {
+        dragCounter.current = 0
+        setIsDragging(false)
+      }
+    }
+    const onDragOver = (e: globalThis.DragEvent) => {
+      e.preventDefault()
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'
+    }
+    const onDrop = (e: globalThis.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      dragCounter.current = 0
+      setIsDragging(false)
+      const files = Array.from(e.dataTransfer?.files ?? [])
+      if (files.length) addFiles(files)
+    }
+
+    el.addEventListener('dragenter', onDragEnter)
+    el.addEventListener('dragleave', onDragLeave)
+    el.addEventListener('dragover', onDragOver)
+    el.addEventListener('drop', onDrop)
+
+    return () => {
+      el.removeEventListener('dragenter', onDragEnter)
+      el.removeEventListener('dragleave', onDragLeave)
+      el.removeEventListener('dragover', onDragOver)
+      el.removeEventListener('drop', onDrop)
+    }
   }, [addFiles])
 
   // Paste handler
@@ -362,11 +459,42 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
           try {
             const parsed = JSON.parse(payload)
             if (parsed.error) throw new Error(parsed.error)
+            if (parsed.session_title) {
+              onSessionTitle?.(parsed.session_title)
+            }
             if (parsed.text) {
               setMessages(prev => {
                 const updated = [...prev]
                 const last = updated[updated.length - 1]
                 updated[updated.length - 1] = { ...last, content: last.content + parsed.text }
+                return updated
+              })
+            }
+            if (parsed.tool_start) {
+              setMessages(prev => {
+                const updated = [...prev]
+                const last = updated[updated.length - 1]
+                const existing = last.toolCalls ?? []
+                updated[updated.length - 1] = { ...last, toolCalls: [...existing, { name: parsed.tool_start.name, input: parsed.tool_start.input, status: 'running' as const }] }
+                return updated
+              })
+            }
+            if (parsed.tool_end) {
+              setMessages(prev => {
+                const updated = [...prev]
+                const last = updated[updated.length - 1]
+                // Mark the last running call with this name as done
+                const toolCalls = (last.toolCalls ?? []).map(tc =>
+                  tc.name === parsed.tool_end.name && tc.status === 'running' ? { ...tc, status: 'done' as const } : tc
+                )
+                updated[updated.length - 1] = { ...last, toolCalls }
+                return updated
+              })
+            }
+            if (parsed.suggested_skills) {
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = { ...updated[updated.length - 1], suggestedSkills: parsed.suggested_skills }
                 return updated
               })
             }
@@ -406,25 +534,46 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
   function handleSkillClick(slug: string) {
     const prefix = `/${slug} `
     setInput(prev => prev.startsWith(prefix) ? prev : prefix + prev)
+    setSlashHighlight(0)
     textareaRef.current?.focus()
   }
 
+  // Slash command popup
+  const slashMatch = input.match(/^\/(\S*)$/)
+  const slashQuery = slashMatch ? slashMatch[1] : null   // null = popup closed
+  const slashMatches = slashQuery !== null
+    ? skills.filter(s =>
+        !slashQuery ||
+        s.slug.includes(slashQuery) ||
+        (s.title ?? '').toLowerCase().includes(slashQuery.toLowerCase())
+      ).slice(0, 8)
+    : []
+  const isSlashOpen = slashQuery !== null && slashMatches.length > 0
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (isSlashOpen) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSlashHighlight(h => Math.min(h + 1, slashMatches.length - 1)); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSlashHighlight(h => Math.max(h - 1, 0)); return }
+      if (e.key === 'Enter') { e.preventDefault(); handleSkillClick(slashMatches[slashHighlight]?.slug ?? ''); return }
+      if (e.key === 'Escape') { e.preventDefault(); setInput(''); return }
+    }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
-  const skillsToShow = skills.slice(0, 5)
-  const extraCount = Math.max(0, skills.length - 5)
+  // Chips row: use last assistant message's suggested skills if available, else first 5
+  const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant' && m.suggestedSkills?.length)
+  const suggestedSlugs = lastAssistantMsg?.suggestedSkills ?? []
+  const suggestedSkillObjs = suggestedSlugs.map(slug => skills.find(s => s.slug === slug)).filter(Boolean) as Skill[]
+  const chipsSkills = suggestedSkillObjs.length > 0 ? suggestedSkillObjs : skills.slice(0, 5)
+  const chipsLabel = suggestedSkillObjs.length > 0 ? 'Suggested' : null
+
   const hasReady = pendingAttachments.some(a => a.status === 'ready')
   const canSend = (input.trim() || hasReady) && !isStreaming && !pendingAttachments.some(a => a.status === 'processing')
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col h-screen bg-white relative"
-      onDragEnter={onDragEnter}
-      onDragLeave={onDragLeave}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
     >
       {/* Drag overlay */}
       {isDragging && (
@@ -536,30 +685,87 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
             }
 
             // Assistant message
+            const runningTool = msg.toolCalls?.find(tc => tc.status === 'running')
             return (
               <div key={i} className="flex justify-start">
                 <div className="max-w-[85%] sm:max-w-[72%]">
                   <div className="flex items-start gap-3">
-                    <div className="shrink-0 h-7 w-7 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mt-0.5">
-                      <span className="text-accent text-xs font-display font-bold">SP</span>
+                    <div className={`shrink-0 h-7 w-7 rounded-full border flex items-center justify-center mt-0.5 transition-colors ${runningTool ? 'bg-accent/15 border-accent/30' : 'bg-accent/10 border-accent/20'}`}>
+                      {runningTool ? (
+                        <svg className="h-3.5 w-3.5 animate-spin text-accent" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : (
+                        <span className="text-accent text-xs font-display font-bold">SP</span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       {isMeetingBriefing && (
-                        <div className="flex items-center gap-2 mb-3 text-xs text-accent">
+                        <div className="flex items-center gap-2 text-xs text-accent">
                           <span>🎙</span>
                           <span className="font-display font-medium">Meeting briefing</span>
                         </div>
                       )}
+                      {/* Tool call pills */}
+                      {msg.toolCalls && msg.toolCalls.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {msg.toolCalls.map((tc, ti) => (
+                            <ToolCallCard key={ti} call={tc} />
+                          ))}
+                        </div>
+                      )}
+                      {/* Content or status indicator */}
                       {msg.content ? (
                         <SimpleMarkdown content={msg.content} />
+                      ) : runningTool ? (
+                        <div className="flex items-center gap-2 py-0.5">
+                          <svg className="h-3 w-3 animate-spin text-accent shrink-0" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          <span className="text-xs text-accent/80">{toolIndicatorText(runningTool)}</span>
+                        </div>
                       ) : (
-                        <div className="flex items-center gap-2">
-                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-                          <span className="font-sans text-xs text-gray-400">thinking…</span>
+                        <div className="flex items-center gap-2 py-0.5">
+                          <div className="flex items-center gap-1">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-bounce" style={{ animationDelay: '300ms' }} />
+                          </div>
+                          <span className="text-xs text-gray-400">
+                            {msg.toolCalls && msg.toolCalls.length > 0 ? 'Synthesizing research…' : 'Thinking…'}
+                          </span>
                         </div>
                       )}
                       {msg.deliverable && (
                         <ArtifactCard deliverable={msg.deliverable} orgSlug={orgSlug} />
+                      )}
+                      {/* Suggested next skills */}
+                      {msg.suggestedSkills && msg.suggestedSkills.length > 0 && (
+                        <div className="pt-2 border-t border-gray-100 mt-2">
+                          <p className="text-xs text-gray-400 mb-2 font-medium">Try next</p>
+                          <div className="flex flex-wrap gap-2">
+                            {msg.suggestedSkills.map(slug => {
+                              const sk = skills.find(s => s.slug === slug)
+                              return (
+                                <button
+                                  key={slug}
+                                  onClick={() => handleSkillClick(slug)}
+                                  className="group flex flex-col gap-0.5 rounded-xl border border-gray-200 px-3 py-2 text-left hover:border-accent hover:bg-accent/5 transition-all max-w-[200px]"
+                                >
+                                  <span className="text-xs font-medium text-primary group-hover:text-accent flex items-center gap-1">
+                                    <span className="text-accent/50 group-hover:text-accent">⚡</span>
+                                    /{slug}
+                                  </span>
+                                  {sk?.description && (
+                                    <span className="text-[11px] text-gray-400 leading-snug line-clamp-2">{sk.description}</span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -579,23 +785,56 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
         </div>
       )}
 
+      {/* Streaming status bar — always visible when working */}
+      {isStreaming && (() => {
+        const lastMsg = messages[messages.length - 1]
+        const runningTool = lastMsg?.role === 'assistant' ? lastMsg.toolCalls?.find(tc => tc.status === 'running') : undefined
+        const hasDoneTools = lastMsg?.role === 'assistant' && (lastMsg.toolCalls?.length ?? 0) > 0 && !runningTool
+        const isWriting = hasDoneTools && !lastMsg?.content
+        const label = runningTool
+          ? toolIndicatorText(runningTool)
+          : isWriting
+          ? 'Synthesizing research…'
+          : 'Thinking…'
+        return (
+          <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-accent/5 border-t border-accent/10 text-xs text-accent">
+            <svg className="h-3 w-3 animate-spin shrink-0" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <span className="font-medium">{label}</span>
+          </div>
+        )
+      })()}
+
       {/* Input area */}
       <div className="shrink-0 border-t border-gray-100 bg-white px-4 pt-3 pb-4">
         {/* Skill chips */}
-        {skillsToShow.length > 0 && (
+        {chipsSkills.length > 0 && (
           <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
-            {skillsToShow.map((skill) => (
+            {chipsLabel && (
+              <span className="shrink-0 text-[10px] font-semibold text-accent/70 uppercase tracking-wider mr-0.5">{chipsLabel}</span>
+            )}
+            {chipsSkills.map((skill) => (
               <button
                 key={skill.slug}
                 onClick={() => handleSkillClick(skill.slug)}
                 disabled={isStreaming}
+                title={skill.description}
                 className="shrink-0 group flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all disabled:opacity-40"
               >
                 <span className="text-accent/50 group-hover:text-accent transition-colors">⚡</span>
                 /{skill.slug}
               </button>
             ))}
-            {extraCount > 0 && <span className="shrink-0 text-xs text-gray-400">+{extraCount}</span>}
+            <button
+              onClick={() => { setInput('/'); textareaRef.current?.focus() }}
+              disabled={isStreaming}
+              className="shrink-0 text-xs text-gray-400 hover:text-accent transition-colors px-1"
+              title="Browse all skills"
+            >
+              Browse all →
+            </button>
           </div>
         )}
 
@@ -632,6 +871,36 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Slash command popup */}
+        {isSlashOpen && (
+          <div className="mb-2 rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Skills</span>
+              <span className="text-[10px] text-gray-300">↑↓ navigate · Enter select · Esc close</span>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {slashMatches.map((skill, idx) => (
+                <button
+                  key={skill.slug}
+                  onClick={() => handleSkillClick(skill.slug)}
+                  onMouseEnter={() => setSlashHighlight(idx)}
+                  className={`w-full text-left px-3 py-2.5 flex items-start gap-3 transition-colors ${idx === slashHighlight ? 'bg-accent/5' : 'hover:bg-gray-50'}`}
+                >
+                  <span className={`shrink-0 mt-0.5 text-xs font-mono font-semibold ${idx === slashHighlight ? 'text-accent' : 'text-gray-500'}`}>
+                    /{skill.slug}
+                  </span>
+                  <span className="min-w-0">
+                    <span className={`block text-xs font-medium ${idx === slashHighlight ? 'text-primary' : 'text-gray-700'}`}>{skill.title || skill.slug}</span>
+                    {skill.description && (
+                      <span className="block text-[11px] text-gray-400 leading-snug truncate">{skill.description}</span>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
