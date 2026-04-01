@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Webhook } from 'svix'
+import { waitUntil } from '@vercel/functions'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { extractMeetingAsync } from '@/lib/meetingExtraction'
 
@@ -74,14 +75,14 @@ export async function POST(req: NextRequest) {
           .from('meetings')
           .update({ status: 'processing', ended_at: meeting.status === 'in_progress' ? new Date().toISOString() : undefined })
           .eq('id', meeting.id)
-        extractMeetingAsync(meeting.id, orgSlug)
+        waitUntil(extractMeetingAsync(meeting.id, orgSlug))
       }
     } else if (status === 'fatal') {
       await supabase.from('meetings').update({ status: 'failed' }).eq('id', meeting.id)
     }
   } else if (event === 'transcript.data') {
     // Append transcript segment to transcript_raw
-    const segment = payload.data?.transcript
+    const segment = payload.data?.data?.transcript ?? payload.data?.transcript
     if (segment) {
       // Fetch current transcript_raw and append
       const { data: current } = await supabase

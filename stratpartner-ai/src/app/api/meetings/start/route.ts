@@ -34,7 +34,6 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       meeting_url: meetingUrl,
       bot_name: 'StratPartner',
-      webhook_url: `${appUrl}/api/meetings/webhook`,
     }),
   })
 

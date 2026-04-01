@@ -212,18 +212,18 @@ async function createTasksFromActionItems(
 }
 
 /**
- * Fire-and-forget meeting extraction pipeline.
- * Called after meeting ends — never awaited from webhook handler.
+ * Meeting extraction pipeline.
+ * Returns a Promise — use waitUntil() in Vercel webhook handlers to keep function alive.
  */
-export function extractMeetingAsync(meetingId: string, orgSlug: string): void {
-  ;(async () => {
+export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise<void> {
+  return (async () => {
     const supabase = getSupabaseAdmin()
 
     try {
       // 1. Fetch meeting
       const { data: meeting } = await supabase
         .from('meetings')
-        .select('id, org_id, project_id, title, platform, transcript_raw, started_at, ended_at, proactive_message_sent')
+        .select('id, org_id, project_id, title, platform, transcript_raw, recall_bot_id, started_at, ended_at, proactive_message_sent')
         .eq('id', meetingId)
         .single()
 
@@ -232,10 +232,20 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): void {
       // 2. Idempotency guard
       if (meeting.proactive_message_sent) return
 
-      // 3. Flatten transcript
-      const transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
+      // 3. Flatten transcript — fall back to Recall API if transcript_raw is empty
+      let transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
+      if (!transcriptText && meeting.recall_bot_id && process.env.RECALL_API_KEY) {
+        try {
+          const res = await fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/transcript/`, {
+            headers: { Authorization: `Token ${process.env.RECALL_API_KEY}` },
+          })
+          if (res.ok) {
+            const segments: TranscriptSegment[] = await res.json()
+            transcriptText = flattenTranscript(segments)
+          }
+        } catch { /* ignore — fall through to failed */ }
+      }
       if (!transcriptText) {
-        // No transcript — mark failed
         await supabase.from('meetings').update({ status: 'failed' }).eq('id', meetingId)
         return
       }
@@ -379,3 +389,4 @@ Extract strategic intelligence and return this exact JSON structure:
     }
   })()
 }
+
