@@ -1,59 +1,30 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { getOrgMemory, extractMemoryAsync } from '@/lib/memory'
+import { retrieveRelevantChunks } from '@/lib/retrieve'
+import { detectSkill } from '@/lib/detectSkill'
+import { buildSystemPrompt } from '@/lib/systemPrompt'
+import { parseDeliverable, saveDeliverable } from '@/lib/parseDeliverable'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-const KSTACK_SYSTEM_PROMPT = `You are StratPartner — a senior strategic advisor built on the kstack methodology.
-
-You think in patterns, not platitudes. You are direct, opinionated, and specific. You do not hedge when the answer is clear. You do not give generic frameworks when the situation calls for a sharp point of view.
-
-Your operating principles:
-- Pattern recognition first: connect what you're hearing now to patterns you've seen across companies, markets, and founders
-- Specificity over generality: "your churn is a onboarding problem, not a product problem" beats "you should improve retention"
-- Strategic compression: say in one sentence what others say in ten slides
-- Challenge the framing: if the question is wrong, say so before answering
-- Name the real constraint: most problems have one root cause; find it and say it plainly
-- Respect intelligence: talk to founders as peers, not students
-
-Voice: Think Charlie Munger meets a great operator. Blunt, insightful, occasionally provocative, never fluffy.
-
-When you have relevant memory records from this org, weave them into your analysis — show you remember context. When you lack context, ask the one question that would unlock the most clarity.
-
-Format: Short paragraphs preferred. Use bullets only when listing genuinely discrete items. No unnecessary headers. No "I hope this helps." No "Great question!"`
-
-function extractMemoryFacts(message: string, response: string): string | null {
-  // Extract durable facts: decisions, numbers, named entities, commitments
-  const factPatterns = [
-    /(?:we(?:'re| are)|our|the company)\s+(?:has|have|is|are|launched|raised|signed|closed|hired|targeting|building|moving)\s+[^.!?]+[.!?]/gi,
-    /(?:\$[\d,]+(?:k|m|b)?|\d+%|\d+\s*(?:users|customers|employees|months|years))[^.!?]*[.!?]/gi,
-    /(?:decided|agreed|confirmed|committed)\s+(?:to\s+)?[^.!?]+[.!?]/gi,
-  ]
-
-  const facts: string[] = []
-  const combined = `${message} ${response}`
-
-  for (const pattern of factPatterns) {
-    const matches = combined.match(pattern) || []
-    facts.push(...matches.map((f) => f.trim()))
+export async function POST(req: NextRequest) {
+  let body: {
+    org_id?: string
+    message?: string
+    session_id?: string
+    project_id?: string
   }
 
-  if (facts.length === 0) return null
-
-  // Return the most specific fact
-  return facts.sort((a, b) => b.length - a.length)[0].slice(0, 500)
-}
-
-export async function POST(req: NextRequest) {
-  let body: { org_id?: string; message?: string; session_id?: string }
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { org_id, message, session_id } = body
+  const { org_id, message, session_id, project_id } = body
 
   if (!org_id || !message || !session_id) {
     return NextResponse.json(
@@ -64,7 +35,18 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin()
 
-  // Load last 10 messages for session context
+  // 1. Load org by id — validate it exists
+  const { data: org } = await supabase
+    .from('orgs')
+    .select('id, name, slug')
+    .eq('id', org_id)
+    .single()
+
+  if (!org) {
+    return NextResponse.json({ error: 'Organisation not found' }, { status: 404 })
+  }
+
+  // 2. Load last 10 messages for session history
   const { data: history } = await supabase
     .from('messages')
     .select('role, content')
@@ -75,39 +57,77 @@ export async function POST(req: NextRequest) {
 
   const historyMessages = (history ?? []).reverse()
 
-  // Load top 3 relevant memory records via simple text match
-  const keywords = message
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 4)
-    .slice(0, 5)
+  // 3. Load active skills for this org
+  const { data: orgSkillsData } = await supabase
+    .from('org_skills')
+    .select('skills(slug)')
+    .eq('org_id', org_id)
+    .eq('enabled', true)
 
-  let memoryContext = ''
-  if (keywords.length > 0) {
-    const { data: memories } = await supabase
-      .from('memory')
-      .select('content, type')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeSlugs: string[] = (orgSkillsData ?? []).flatMap((row: any) => {
+    const s = row.skills
+    if (!s) return []
+    return Array.isArray(s) ? s.map((x: { slug: string }) => x.slug) : [s.slug]
+  })
+
+  // 4. Detect skill trigger
+  const detectedSkill = detectSkill(message, activeSlugs)
+
+  // 5. Load org memory
+  const orgMemory = await getOrgMemory(org_id)
+
+  // 6. Load project context if projectId provided
+  let projectContext = null
+  if (project_id) {
+    const { data: project } = await supabase
+      .from('projects')
+      .select('name, phase, description, memory')
+      .eq('id', project_id)
       .eq('org_id', org_id)
-      .or(keywords.map((k) => `content.ilike.%${k}%`).join(','))
-      .order('created_at', { ascending: false })
-      .limit(3)
+      .single()
 
-    if (memories && memories.length > 0) {
-      memoryContext =
-        '\n\n[Relevant memory from this org]\n' +
-        memories.map((m) => `- [${m.type}] ${m.content}`).join('\n')
+    if (project) {
+      projectContext = {
+        name: project.name as string,
+        phase: project.phase as string,
+        description: (project.description as string) ?? '',
+        memory: (project.memory as string) ?? '',
+      }
     }
   }
 
-  // Save user message
+  // 7. Retrieve relevant file chunks (skip if OPENAI_API_KEY not set)
+  let retrievedChunks: Awaited<ReturnType<typeof retrieveRelevantChunks>> = []
+  if (process.env.OPENAI_API_KEY) {
+    try {
+      retrievedChunks = await retrieveRelevantChunks(message, org_id)
+    } catch {
+      // RAG failure is non-critical — continue without context
+    }
+  }
+
+  // 8. Build system prompt
+  const systemPrompt = buildSystemPrompt({
+    orgMemory,
+    retrievedChunks,
+    activeSlugs,
+    detectedSkill,
+    projectContext,
+  })
+
+  // 9. Save user message
   await supabase.from('messages').insert({
     org_id,
     session_id,
     role: 'user',
     content: message,
+    channel: 'web',
+    skill_used: detectedSkill?.slug ?? null,
+    project_id: project_id ?? null,
   })
 
-  // Build Anthropic messages array
+  // 10. Build Anthropic messages array
   const anthropicMessages: Anthropic.MessageParam[] = [
     ...historyMessages.map((m) => ({
       role: m.role as 'user' | 'assistant',
@@ -118,20 +138,16 @@ export async function POST(req: NextRequest) {
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const systemPrompt = memoryContext
-    ? KSTACK_SYSTEM_PROMPT + memoryContext
-    : KSTACK_SYSTEM_PROMPT
-
-  // Stream SSE response
   const encoder = new TextEncoder()
   let fullResponse = ''
 
+  // 11. Stream response
   const stream = new ReadableStream({
     async start(controller) {
       try {
         const anthropicStream = await anthropic.messages.stream({
           model: 'claude-sonnet-4-6',
-          max_tokens: 1024,
+          max_tokens: 4096,
           system: systemPrompt,
           messages: anthropicMessages,
         })
@@ -149,34 +165,42 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Signal stream end
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
         controller.close()
 
-        // Save assistant response
+        // Post-stream: parse deliverable marker, save message, update memory
+        const { mainContent, meta } = parseDeliverable(fullResponse)
+        const displayContent = meta ? mainContent : fullResponse
+
+        // Save assistant message (with marker stripped if present)
         await supabase.from('messages').insert({
           org_id,
           session_id,
           role: 'assistant',
-          content: fullResponse,
+          content: displayContent,
+          channel: 'web',
+          skill_used: detectedSkill?.slug ?? null,
+          project_id: project_id ?? null,
         })
 
-        // Extract and persist durable facts to memory
-        const fact = extractMemoryFacts(message, fullResponse)
-        if (fact) {
-          await supabase.from('memory').insert({
-            org_id,
-            type: 'fact',
-            content: fact,
+        // Auto-save deliverable if marker was found and we're in a project
+        if (meta && project_id && detectedSkill) {
+          await saveDeliverable({
+            orgId: org_id,
+            projectId: project_id,
+            title: meta.title,
+            type: detectedSkill.slug,
+            content: mainContent,
+            sessionId: session_id,
           })
         }
+
+        // Update memory asynchronously (non-blocking)
+        extractMemoryAsync(org_id, orgMemory, message, displayContent)
       } catch (err) {
-        const errMsg =
-          err instanceof Error ? err.message : 'Streaming error'
+        const errMsg = err instanceof Error ? err.message : 'Streaming error'
         controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ error: errMsg })}\n\n`
-          )
+          encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`)
         )
         controller.close()
       }

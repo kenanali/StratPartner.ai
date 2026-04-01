@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 interface Message {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
 }
 
@@ -16,9 +16,10 @@ interface ChatUIProps {
   orgId: string
   orgName: string
   orgSlug: string
+  projectId?: string
 }
 
-export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
+export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -26,11 +27,15 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const userScrolledUp = useRef(false)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const storageKey = `sp_session_${orgSlug}`
+    const storageKey = `sp_session_${orgSlug}${projectId ? `_${projectId}` : ''}`
     let sid = localStorage.getItem(storageKey)
     if (!sid) {
       sid = crypto.randomUUID()
@@ -38,10 +43,10 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
     }
     setSessionId(sid)
 
-    async function loadHistory(sessionIdValue: string) {
+    async function loadHistory(sid: string) {
       try {
         const res = await fetch(
-          `/api/messages?orgId=${orgId}&sessionId=${sessionIdValue}&limit=20`
+          `/api/messages?orgId=${orgId}&sessionId=${sid}&limit=20`
         )
         if (!res.ok) throw new Error('Failed to load history')
         const data = await res.json()
@@ -61,17 +66,33 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
           setSkills(data.skills ?? [])
         }
       } catch {
-        // skills are non-critical, silently skip
+        // skills are non-critical
       }
     }
 
     loadHistory(sid)
     loadSkills()
-  }, [orgId, orgSlug])
+  }, [orgId, orgSlug, projectId])
 
+  // Auto-scroll unless user scrolled up manually
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (!userScrolledUp.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
+
+  // Track manual scroll
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    const handleScroll = () => {
+      const isAtBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight < 50
+      userScrolledUp.current = !isAtBottom
+    }
+    container.addEventListener('scroll', handleScroll)
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [])
 
   // Auto-resize textarea
   useEffect(() => {
@@ -87,10 +108,9 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
     const userMessage = input.trim()
     setInput('')
     setError(null)
+    userScrolledUp.current = false
     setMessages((prev) => [...prev, { role: 'user', content: userMessage }])
     setIsStreaming(true)
-
-    // Placeholder for streaming assistant reply
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
 
     try {
@@ -101,6 +121,7 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
           org_id: orgId,
           message: userMessage,
           session_id: sessionId,
+          project_id: projectId ?? null,
         }),
       })
 
@@ -141,7 +162,10 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
               })
             }
           } catch (parseErr) {
-            if (parseErr instanceof Error && parseErr.message !== 'Unexpected end of JSON input') {
+            if (
+              parseErr instanceof Error &&
+              parseErr.message !== 'Unexpected end of JSON input'
+            ) {
               throw parseErr
             }
           }
@@ -150,7 +174,6 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Something went wrong'
       setError(msg)
-      // Remove the empty placeholder assistant message
       setMessages((prev) => {
         const last = prev[prev.length - 1]
         if (last?.role === 'assistant' && last.content === '') {
@@ -160,6 +183,68 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
       })
     } finally {
       setIsStreaming(false)
+    }
+  }
+
+  async function handleFileUpload(file: File) {
+    if (!file || isUploading) return
+
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword']
+    const isAllowed = allowedTypes.includes(file.type) || file.name.endsWith('.pdf') || file.name.endsWith('.docx')
+
+    if (!isAllowed) {
+      setError('Only PDF and DOCX files are supported.')
+      return
+    }
+
+    setIsUploading(true)
+    setError(null)
+
+    // Show processing message in chat
+    setMessages((prev) => [
+      ...prev,
+      { role: 'system', content: `Processing "${file.name}"…` },
+    ])
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('orgId', orgId)
+    if (projectId) formData.append('projectId', projectId)
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Upload failed')
+      }
+
+      // Replace processing message with success message
+      setMessages((prev) => {
+        const updated = [...prev]
+        const lastIdx = updated.length - 1
+        if (updated[lastIdx]?.role === 'system' && updated[lastIdx].content.startsWith('Processing')) {
+          updated[lastIdx] = {
+            role: 'system',
+            content: `I've read and embedded "${data.fileName}" (${data.chunkCount} chunks). You can now ask me questions about it.`,
+          }
+        }
+        return updated
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Upload failed'
+      setError(msg)
+      // Remove the processing message
+      setMessages((prev) => {
+        const last = prev[prev.length - 1]
+        if (last?.role === 'system' && last.content.startsWith('Processing')) {
+          return prev.slice(0, -1)
+        }
+        return prev
+      })
+    } finally {
+      setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
 
@@ -176,24 +261,39 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
     }
   }
 
+  const skillsToShow = skills.slice(0, 5)
+  const extraCount = Math.max(0, skills.length - 5)
+
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* Header */}
-      <header className="shrink-0 border-b border-gray-200 bg-white px-4 py-3">
-        <h1 className="text-base font-semibold text-gray-900">{orgName}</h1>
-        <p className="text-xs text-gray-400">StratPartner.ai</p>
+      <header className="shrink-0 border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
+        <div>
+          <h1 className="text-base font-semibold text-gray-900">{orgName}</h1>
+          <p className="text-xs text-gray-400">StratPartner.ai</p>
+        </div>
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 overflow-y-auto px-4 py-6 space-y-4"
+      >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <span className="text-sm text-gray-400">Loading…</span>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-            <p className="text-gray-400 text-sm">No messages yet.</p>
-            <p className="text-gray-300 text-xs">Ask StratPartner a strategic question.</p>
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3">
+            <p className="text-gray-700 text-lg font-medium">
+              StratPartner is ready.
+            </p>
+            <p className="text-gray-400 text-sm max-w-sm">
+              Ask a strategic question, run a framework, or upload a document to get started.
+            </p>
+            <p className="text-gray-300 text-xs">
+              Try /journey-map, /trend-scan, or just start talking.
+            </p>
           </div>
         ) : (
           messages.map((msg, i) => (
@@ -201,21 +301,30 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
               key={i}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div
-                className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                  msg.role === 'user'
-                    ? 'bg-indigo-600 text-white rounded-br-sm'
-                    : 'bg-gray-100 text-gray-900 rounded-bl-sm'
-                }`}
-              >
-                {msg.content || (
-                  <span className="inline-flex gap-0.5 items-center h-4">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+              {msg.role === 'system' ? (
+                <div className="w-full flex justify-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1.5 text-xs text-indigo-600">
+                    {msg.content}
                   </span>
-                )}
-              </div>
+                </div>
+              ) : (
+                <div
+                  className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'bg-indigo-600 text-white rounded-br-sm whitespace-pre-wrap'
+                      : 'bg-gray-100 text-gray-900 rounded-bl-sm'
+                  }`}
+                  style={msg.role === 'assistant' ? { whiteSpace: 'pre-wrap' } : {}}
+                >
+                  {msg.content || (
+                    <span className="inline-flex gap-0.5 items-center h-4">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}
@@ -224,37 +333,76 @@ export default function ChatUI({ orgId, orgName, orgSlug }: ChatUIProps) {
 
       {/* Error banner */}
       {error && (
-        <div className="shrink-0 mx-4 mb-2 rounded-lg bg-red-50 border border-red-100 px-4 py-2 text-sm text-red-600">
-          {error}
+        <div className="shrink-0 mx-4 mb-2 rounded-lg bg-red-50 border border-red-100 px-4 py-2 text-sm text-red-600 flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-2 text-red-400 hover:text-red-600 text-xs"
+          >
+            ✕
+          </button>
         </div>
       )}
 
       {/* Input area */}
-      <div className="shrink-0 border-t border-gray-200 bg-white px-4 pt-3 pb-safe pb-4">
+      <div className="shrink-0 border-t border-gray-200 bg-white px-4 pt-3 pb-4">
         {/* Skill chips */}
-        {skills.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-3">
-            {skills.map((skill) => (
+        {skillsToShow.length > 0 && (
+          <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+            {skillsToShow.map((skill) => (
               <button
                 key={skill.slug}
                 onClick={() => handleSkillClick(skill.slug)}
-                className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                disabled={isStreaming}
+                className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors disabled:opacity-40"
               >
                 /{skill.slug}
               </button>
             ))}
+            {extraCount > 0 && (
+              <span className="shrink-0 text-xs text-gray-400">+{extraCount}</span>
+            )}
           </div>
         )}
 
         {/* Input row */}
         <div className="flex gap-2 items-end">
+          {/* File upload button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.doc"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) handleFileUpload(file)
+            }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming || isUploading}
+            title="Upload PDF or DOCX"
+            className="shrink-0 rounded-xl border border-gray-300 p-2.5 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          >
+            {isUploading ? (
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            )}
+          </button>
+
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isStreaming}
-            placeholder="Ask a strategic question… (Enter to send, Shift+Enter for newline)"
+            placeholder="Ask a strategic question, run a framework, or upload a document…"
             rows={1}
             className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 min-h-[44px]"
           />
