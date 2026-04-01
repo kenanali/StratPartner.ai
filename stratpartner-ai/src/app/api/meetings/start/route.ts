@@ -19,6 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Recall.ai not configured' }, { status: 503 })
   }
 
+  const appUrl = process.env.APP_URL
+  if (!appUrl) {
+    return NextResponse.json({ error: 'APP_URL env var not set — cannot build webhook URL' }, { status: 503 })
+  }
+
   const platform = detectPlatform(meetingUrl)
 
   // Deploy bot via Recall.ai
@@ -39,7 +44,7 @@ export async function POST(req: NextRequest) {
         realtime_endpoints: [
           {
             type: 'webhook',
-            url: `${process.env.APP_URL}/api/meetings/webhook`,
+            url: `${appUrl}/api/meetings/webhook`,
             events: ['transcript.data'],
           },
         ],
