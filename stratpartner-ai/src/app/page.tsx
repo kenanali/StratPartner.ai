@@ -5,14 +5,19 @@ export default async function Home() {
   const supabase = getSupabaseAdmin()
   const { data: orgs } = await supabase.from('orgs').select('id, slug, name')
   const { data: projects } = orgs?.length
-    ? await supabase.from('projects').select('id, name, org_id').eq('org_id', orgs[0].id)
+    ? await supabase.from('projects').select('id, name, org_id').eq('org_id', orgs[0].id).limit(3)
+    : { data: [] }
+  const { data: deliverables } = projects?.length
+    ? await supabase.from('deliverables').select('id, title, project_id').eq('project_id', projects[0].id).limit(2)
     : { data: [] }
 
   const org = orgs?.[0]
+  const project = projects?.[0]
+  const deliverable = deliverables?.[0]
 
   const sections = [
     {
-      label: 'Core',
+      label: 'Auth',
       links: [
         { href: '/login', label: 'Login (magic link)' },
         { href: '/gate', label: 'Password gate' },
@@ -23,15 +28,47 @@ export default async function Home() {
     ...(org
       ? [
           {
-            label: `Org: ${org.name} (${org.slug})`,
+            label: `Dashboard — ${org.name}`,
             links: [
-              { href: `/chat/${org.slug}`, label: 'Chat (standalone)' },
-              { href: `/dashboard/${org.slug}`, label: 'Dashboard' },
-              { href: `/dashboard/${org.slug}/sources`, label: 'Sources — file manager' },
-              ...(projects ?? []).map((p) => ({
-                href: `/dashboard/${org.slug}/projects/${p.id}`,
-                label: `Project — ${p.name}`,
-              })),
+              { href: `/dashboard/${org.slug}`, label: 'Dashboard (home + first-run wizard)' },
+              { href: `/dashboard/${org.slug}/activity`, label: 'Activity feed' },
+              { href: `/dashboard/${org.slug}/inbox`, label: '📬 Inbox (agent notifications)' },
+              { href: `/dashboard/${org.slug}/memory`, label: '🧠 Memory (org + project cards)' },
+              { href: `/dashboard/${org.slug}/projects`, label: 'Projects' },
+              { href: `/dashboard/${org.slug}/tasks`, label: 'Tasks (kanban)' },
+              { href: `/dashboard/${org.slug}/meetings`, label: 'Meetings (Recall.ai)' },
+              { href: `/dashboard/${org.slug}/sources`, label: 'Sources (RAG files)' },
+              { href: `/dashboard/${org.slug}/skills`, label: 'Skills catalog' },
+              { href: `/dashboard/${org.slug}/routines`, label: 'Routines' },
+              { href: `/dashboard/${org.slug}/agents`, label: 'Agents (8 roles)' },
+            ],
+          },
+          {
+            label: 'Chat',
+            links: [
+              { href: `/chat/${org.slug}`, label: 'Chat hub (session list + new chat)' },
+            ],
+          },
+          ...(project
+            ? [
+                {
+                  label: `Project — ${project.name}`,
+                  links: [
+                    { href: `/dashboard/${org.slug}/projects/${project.id}`, label: 'Project overview' },
+                    { href: `/dashboard/${org.slug}/projects/${project.id}/deliverables`, label: 'Deliverables library' },
+                    ...(deliverable
+                      ? [{ href: `/dashboard/${org.slug}/projects/${project.id}/deliverables/${deliverable.id}`, label: `Deliverable — ${deliverable.title.slice(0, 40)}` }]
+                      : []
+                    ),
+                  ],
+                },
+              ]
+            : []
+          ),
+          {
+            label: 'Onboarding (teammate invite)',
+            links: [
+              { href: `/onboard/${org.slug}`, label: 'Onboard form (no auth — shareable link)' },
             ],
           },
         ]
@@ -43,6 +80,11 @@ export default async function Home() {
         { href: `/api/projects?orgId=${org?.id ?? ''}`, label: 'GET /api/projects' },
         { href: `/api/org-skills?org_id=${org?.id ?? ''}`, label: 'GET /api/org-skills' },
         { href: `/api/messages?org_id=${org?.id ?? ''}`, label: 'GET /api/messages' },
+        { href: `/api/inbox?orgId=${org?.id ?? ''}`, label: 'GET /api/inbox' },
+        { href: `/api/inbox/count?orgId=${org?.id ?? ''}`, label: 'GET /api/inbox/count' },
+        { href: `/api/memory?orgId=${org?.id ?? ''}`, label: 'GET /api/memory' },
+        { href: `/api/deliverables?orgId=${org?.id ?? ''}`, label: 'GET /api/deliverables' },
+        { href: `/api/sessions?orgId=${org?.id ?? ''}`, label: 'GET /api/sessions' },
       ],
     },
   ]
@@ -66,7 +108,7 @@ export default async function Home() {
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                    className="flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition-colors"
                   >
                     <span>{link.label}</span>
                     <span className="text-gray-300 text-xs font-mono truncate ml-4 max-w-xs">{link.href}</span>
