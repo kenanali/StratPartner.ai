@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import MeetingsClient from './MeetingsClient'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: { orgSlug: string }
 }

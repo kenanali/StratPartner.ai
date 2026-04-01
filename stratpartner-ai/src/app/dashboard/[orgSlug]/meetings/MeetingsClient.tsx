@@ -84,7 +84,7 @@ export default function MeetingsClient({ orgId, orgSlug, initialMeetings, projec
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Poll while any meeting is in_progress or processing
-  const hasActiveMeetings = meetings.some((m) => m.status === 'in_progress' || m.status === 'processing' || m.status === 'joining')
+  const hasActiveMeetings = meetings.some((m) => !['complete', 'failed'].includes(m.status))
 
   useEffect(() => {
     if (!hasActiveMeetings) {
