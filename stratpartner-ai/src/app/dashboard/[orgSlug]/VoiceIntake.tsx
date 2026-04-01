@@ -114,8 +114,8 @@ export default function VoiceIntake({ orgId, orgSlug, isOpen, onClose }: Props) 
       await vapi.start({
         transcriber: { provider: 'deepgram', model: 'nova-2' },
         model: {
-          provider: 'anthropic',
-          model: 'claude-haiku-4-5-20251001',
+          provider: 'openai',
+          model: 'gpt-4o-mini',
           messages: [{
             role: 'system',
             content: `You are StratPartner, a senior strategy advisor. Ask the user: "Tell me about your project — who's the client, what are you trying to achieve, and what does success look like?" Listen attentively and ask at most one follow-up question. Keep the conversation under 2 minutes.`,
