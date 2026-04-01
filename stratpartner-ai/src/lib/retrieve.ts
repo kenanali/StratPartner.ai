@@ -15,7 +15,7 @@ export async function retrieveRelevantChunks(
   query: string,
   orgId: string,
   topK = 5,
-  similarityThreshold = 0.72
+  similarityThreshold = 0.25
 ): Promise<RetrievedChunk[]> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
