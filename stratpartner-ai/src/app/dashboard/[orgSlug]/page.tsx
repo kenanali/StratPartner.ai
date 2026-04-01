@@ -16,7 +16,7 @@ export default async function DashboardPage({ params }: PageProps) {
     .eq('slug', params.orgSlug)
     .single()
 
-  if (!org) redirect('/login')
+  if (!org) redirect('/')
 
   const { data: projects } = await supabase
     .from('projects')

@@ -16,7 +16,7 @@ export default async function ProjectPage({ params }: PageProps) {
     .eq('id', params.projectId)
     .single()
 
-  if (!project) redirect(`/dashboard/${params.orgSlug}`)
+  if (!project) redirect('/')
 
   const [{ data: tasks }, { data: deliverables }] = await Promise.all([
     supabase
