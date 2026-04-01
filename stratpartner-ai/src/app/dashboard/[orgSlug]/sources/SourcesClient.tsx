@@ -23,17 +23,21 @@ interface UploadingFile {
   error?: string
 }
 
-const ACCEPTED = '.pdf,.docx,.doc'
+const ACCEPTED = '.pdf,.docx,.doc,.txt,.md,.markdown,.csv,.json,.xml,.yaml,.yml,.ts,.tsx,.js,.jsx,.py,.rb,.go,.rs,.java,.c,.cpp,.h,.css,.sql,.html'
 const ACCEPTED_MIME = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/msword',
+  'text/plain', 'text/markdown', 'text/csv', 'text/html', 'text/xml',
+  'application/json', 'application/xml',
 ]
 
 function mimeLabel(mime: string, name: string): string {
   if (mime.includes('pdf') || name.endsWith('.pdf')) return 'PDF'
   if (mime.includes('wordprocessingml') || name.endsWith('.docx')) return 'DOCX'
   if (mime.includes('msword') || name.endsWith('.doc')) return 'DOC'
+  const ext = name.split('.').pop()?.toUpperCase()
+  if (ext) return ext
   return mime.split('/').pop()?.toUpperCase() ?? 'FILE'
 }
 
@@ -45,9 +49,11 @@ export default function SourcesClient({ orgId, orgSlug, initialSources }: Props)
   const dragCounter = useRef(0)
 
   const uploadFiles = useCallback(async (files: File[]) => {
+    const ACCEPTED_EXTS = ACCEPTED.split(',')
     const valid = files.filter(f =>
       ACCEPTED_MIME.includes(f.type) ||
-      f.name.endsWith('.pdf') || f.name.endsWith('.docx') || f.name.endsWith('.doc')
+      f.type.startsWith('text/') ||
+      ACCEPTED_EXTS.some(ext => f.name.toLowerCase().endsWith(ext))
     )
 
     if (!valid.length) return

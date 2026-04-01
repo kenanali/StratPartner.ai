@@ -64,6 +64,13 @@ async function extractText(buffer: Buffer, mimeType: string, fileName: string): 
     fileName.endsWith('.docx') ||
     fileName.endsWith('.doc')
 
+  const TEXT_EXTENSIONS = ['.txt', '.md', '.markdown', '.csv', '.json', '.xml', '.yaml', '.yml', '.ts', '.tsx', '.js', '.jsx', '.py', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.css', '.sql', '.html', '.htm']
+  const isText =
+    mimeType.startsWith('text/') ||
+    mimeType === 'application/json' ||
+    mimeType === 'application/xml' ||
+    TEXT_EXTENSIONS.some(ext => fileName.toLowerCase().endsWith(ext))
+
   if (isPdf) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pdfParse = require('pdf-parse') as (buffer: Buffer) => Promise<{ text: string }>
@@ -73,8 +80,10 @@ async function extractText(buffer: Buffer, mimeType: string, fileName: string): 
     const mammoth = await import('mammoth')
     const result = await mammoth.extractRawText({ buffer })
     return result.value
+  } else if (isText) {
+    return buffer.toString('utf-8')
   } else {
-    throw new Error('Unsupported file type. Upload PDF or DOCX only.')
+    throw new Error('Unsupported file type. Upload PDF, DOCX, or text files (MD, TXT, CSV, JSON, code).')
   }
 }
 
