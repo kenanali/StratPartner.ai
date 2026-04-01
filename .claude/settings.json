@@ -16,7 +16,9 @@
       "Bash(pkill -f \"next dev\")",
       "Bash(echo \"Started PID $!\")",
       "Bash(echo \"PID $!\")",
-      "Read(//private/tmp/**)"
+      "Read(//private/tmp/**)",
+      "Bash(grep -l \"'use client'\" src/**/*.tsx src/**/*.ts)",
+      "Bash(find src/app/api -name \"route.ts\" -type f -exec grep -l \"process\\\\.env\\\\|NextResponse\\\\.json\" {} \\\\;)"
     ],
     "additionalDirectories": [
       "/Users/kenanali/claude/StratPartner.Ai-Project/StratPartner.ai/stratpartner-ai/src/app/dashboard/[orgSlug]"

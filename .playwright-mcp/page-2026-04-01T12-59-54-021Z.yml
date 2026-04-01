@@ -1,0 +1,81 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - heading "Command Palette" [level=2] [ref=e4]
+      - paragraph [ref=e5]: Search commands and files
+    - generic [ref=e8]:
+      - list [ref=e10]:
+        - listitem [ref=e11]:
+          - button "Pilot avatar My Agent" [ref=e13]:
+            - img "Pilot avatar" [ref=e15]
+            - generic:
+              - generic: My Agent
+            - img [ref=e16]
+      - generic [ref=e20]:
+        - listitem [ref=e21]:
+          - link "Mission Control" [ref=e22] [cursor=pointer]:
+            - /url: /dashboard
+            - img [ref=e23]
+            - generic: Mission Control
+        - listitem [ref=e28]:
+          - link "Agent" [ref=e29] [cursor=pointer]:
+            - /url: /chats
+            - img [ref=e30]
+            - generic: Agent
+        - listitem [ref=e32]:
+          - link "Skills" [ref=e33] [cursor=pointer]:
+            - /url: /skills
+            - img [ref=e34]
+            - generic: Skills
+        - listitem [ref=e36]:
+          - link "Automations" [ref=e37] [cursor=pointer]:
+            - /url: /automations
+            - img [ref=e38]
+            - generic: Automations
+        - listitem [ref=e41]:
+          - link "Files" [ref=e42] [cursor=pointer]:
+            - /url: /workspace/files
+            - img [ref=e43]
+            - generic: Files
+        - listitem [ref=e45]:
+          - link "Mail" [ref=e46] [cursor=pointer]:
+            - /url: /mail
+            - img [ref=e47]
+            - generic: Mail
+        - listitem [ref=e50]:
+          - link "Settings" [ref=e51] [cursor=pointer]:
+            - /url: /settings
+            - img [ref=e52]
+            - generic: Settings
+      - list [ref=e56]:
+        - listitem [ref=e57]:
+          - button "Submit feedback" [ref=e58]:
+            - img [ref=e59]
+            - generic: Submit feedback
+    - main [ref=e61]:
+      - generic [ref=e62]:
+        - navigation [ref=e64]:
+          - generic [ref=e65]: Automations
+        - generic [ref=e67]:
+          - generic [ref=e70]:
+            - heading "Automations" [level=1] [ref=e71]
+            - paragraph [ref=e72]: Automated tasks that run on a schedule.
+          - generic [ref=e81]:
+            - textbox "Describe an automation to create..." [ref=e83]
+            - generic [ref=e84]:
+              - combobox "Select model" [ref=e85] [cursor=pointer]:
+                - generic: Sonnet 4.6
+                - img
+              - button "Plan" [ref=e86]:
+                - img [ref=e87]
+                - text: Plan
+              - button "Think" [ref=e90]:
+                - img [ref=e91]
+                - text: Think
+              - button "Attach" [ref=e101]:
+                - img [ref=e102]
+                - text: Attach
+            - button "Send message" [ref=e105]:
+              - img [ref=e106]
+  - region "Notifications alt+T"
+  - alert [ref=e108]

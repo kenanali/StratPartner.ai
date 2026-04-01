@@ -1,0 +1,414 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - img "Goose" [ref=e5]
+      - link "Sign Up" [ref=e7] [cursor=pointer]:
+        - /url: https://app.gooseworks.sh
+        - text: Sign Up
+        - img [ref=e8]
+    - generic [ref=e13]:
+      - link "Y Combinator Backed by Y Combinator" [ref=e14] [cursor=pointer]:
+        - /url: https://www.ycombinator.com/companies/athina-ai
+        - img "Y Combinator" [ref=e15]
+        - text: Backed by Y Combinator
+        - img [ref=e16]
+      - heading "Build your team of AI coworkers" [level=2] [ref=e18]
+      - paragraph [ref=e19]: AI coworkers that can do real work and get better over time.
+      - link "Get started for free →" [ref=e20] [cursor=pointer]:
+        - /url: https://app.gooseworks.sh
+    - generic [ref=e21]:
+      - generic [ref=e23]:
+        - button "SEO Content Pipeline" [ref=e24]
+        - button "Intent-Based Lead Gen" [ref=e25]
+        - button "Churn Win-Back" [ref=e26]
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - img "Goose" [ref=e31]
+          - generic [ref=e32]:
+            - button "Agent" [ref=e33]:
+              - img [ref=e34]
+            - button "Skills" [ref=e36]:
+              - img [ref=e37]
+            - button "Automations" [ref=e39]:
+              - img [ref=e40]
+            - button "Files" [ref=e43]:
+              - img [ref=e44]
+            - button "Mail" [ref=e46]:
+              - img [ref=e47]
+            - button "Settings" [ref=e50]:
+              - img [ref=e51]
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - generic [ref=e57]: SEO Audit & Content Pipeline
+            - generic [ref=e59]: ···
+          - generic [ref=e63]:
+            - generic [ref=e65]: Do a full SEO audit on gooseworks.sh — find where we have gaps, research what our competitors are writing about, come up with a content strategy, then create the blog posts and push them into our CMS.
+            - generic [ref=e67]: 10:23 PM
+          - generic [ref=e70]:
+            - textbox "Ask Goose to get things done..." [ref=e71]
+            - generic [ref=e72]:
+              - button "Agent":
+                - img
+                - generic: Agent
+              - generic [ref=e73]: Opus 4.6
+              - button "Plan":
+                - img
+                - text: Plan
+              - button "Think":
+                - img
+                - text: Think
+              - button "Attach":
+                - img
+                - text: Attach
+            - button:
+              - img
+        - generic [ref=e74]:
+          - generic [ref=e76]:
+            - button "Files" [ref=e77]:
+              - img [ref=e78]
+              - text: Files
+            - button "Skills" [ref=e81]:
+              - img [ref=e82]
+              - text: Skills
+            - button "MCP" [ref=e86]:
+              - img [ref=e87]
+              - text: MCP
+          - generic [ref=e93]:
+            - generic [ref=e94]:
+              - generic [ref=e95]:
+                - generic [ref=e96]: Agent
+                - generic [ref=e97]: Shared
+              - generic [ref=e99]:
+                - button [ref=e100]:
+                  - img [ref=e101]
+                - button [ref=e102]:
+                  - img [ref=e103]
+                - button [ref=e108]:
+                  - img [ref=e109]
+            - generic [ref=e113]:
+              - img [ref=e114]
+              - generic [ref=e117]: Search files...
+            - generic [ref=e118]:
+              - button "CLAUDE.md" [ref=e119]:
+                - img [ref=e120]
+                - generic [ref=e123]: CLAUDE.md
+              - generic [ref=e124]:
+                - button "content" [ref=e125]:
+                  - img [ref=e126]
+                  - img [ref=e128]
+                  - generic [ref=e130]: content
+                - button "blog" [ref=e133]:
+                  - img [ref=e134]
+                  - img [ref=e136]
+                  - generic [ref=e138]: blog
+              - button "daily-meeting-brief-workspace" [ref=e140]:
+                - img [ref=e141]
+                - img [ref=e143]
+                - generic [ref=e145]: daily-meeting-brief-workspace
+              - button "daily-meeting-brief.skill" [ref=e146]:
+                - img [ref=e147]
+                - generic [ref=e149]: daily-meeting-brief.skill
+              - generic [ref=e150]:
+                - button "documents" [ref=e151]:
+                  - img [ref=e152]
+                  - img [ref=e154]
+                  - generic [ref=e156]: documents
+                - generic [ref=e157]:
+                  - button "brand-guidelines.md" [ref=e158]:
+                    - img [ref=e159]
+                    - generic [ref=e162]: brand-guidelines.md
+                  - button "product-brief.md" [ref=e163]:
+                    - img [ref=e164]
+                    - generic [ref=e167]: product-brief.md
+              - button "GTM Conference Speakers Strategy" [ref=e169]:
+                - img [ref=e170]
+                - img [ref=e172]
+                - generic [ref=e174]: GTM Conference Speakers Strategy
+              - button "gtm-engineer-intent-signals.csv" [ref=e175]:
+                - img [ref=e176]
+                - generic [ref=e179]: gtm-engineer-intent-signals.csv
+              - button "IDENTITY.md" [ref=e180]:
+                - img [ref=e181]
+                - generic [ref=e184]: IDENTITY.md
+              - button "linkedin-posts" [ref=e186]:
+                - img [ref=e187]
+                - img [ref=e189]
+                - generic [ref=e191]: linkedin-posts
+              - button "mails" [ref=e193]:
+                - img [ref=e194]
+                - img [ref=e196]
+                - generic [ref=e198]: mails
+              - button "MEMORY.md" [ref=e199]:
+                - img [ref=e200]
+                - generic [ref=e203]: MEMORY.md
+              - button "notes" [ref=e205]:
+                - img [ref=e206]
+                - img [ref=e208]
+                - generic [ref=e210]: notes
+              - button "ONBOARDING.md" [ref=e211]:
+                - img [ref=e212]
+                - generic [ref=e215]: ONBOARDING.md
+              - button "personal-crm" [ref=e217]:
+                - img [ref=e218]
+                - img [ref=e220]
+                - generic [ref=e222]: personal-crm
+              - button "projects" [ref=e224]:
+                - img [ref=e225]
+                - img [ref=e227]
+                - generic [ref=e229]: projects
+              - generic [ref=e230]:
+                - button "research" [ref=e231]:
+                  - img [ref=e232]
+                  - img [ref=e234]
+                  - generic [ref=e236]: research
+                - generic [ref=e237]:
+                  - button "seo-gap-analysis.md" [ref=e238]:
+                    - img [ref=e239]
+                    - generic [ref=e242]: seo-gap-analysis.md
+                  - button "content-strategy.md" [ref=e243]:
+                    - img [ref=e244]
+                    - generic [ref=e247]: content-strategy.md
+                  - button "competitor-analysis.md" [ref=e248]:
+                    - img [ref=e249]
+                    - generic [ref=e252]: competitor-analysis.md
+              - button "skills" [ref=e254]:
+                - img [ref=e255]
+                - img [ref=e257]
+                - generic [ref=e259]: skills
+              - button "SOUL.md" [ref=e260]:
+                - img [ref=e261]
+                - generic [ref=e264]: SOUL.md
+              - button "uploads" [ref=e266]:
+                - img [ref=e267]
+                - img [ref=e269]
+                - generic [ref=e271]: uploads
+              - button "USER.md" [ref=e272]:
+                - img [ref=e273]
+                - generic [ref=e276]: USER.md
+    - generic [ref=e278]:
+      - generic [ref=e279]:
+        - img "Goose avatar" [ref=e281]
+        - img "Goose avatar" [ref=e283]
+        - img "Goose avatar" [ref=e285]
+        - img "Goose avatar" [ref=e287]
+        - img "Goose avatar" [ref=e289]
+      - generic [ref=e290]:
+        - generic [ref=e291]:
+          - heading "Goose is not a chatbot." [level=3] [ref=e292]
+          - paragraph [ref=e293]: Goose is a coworker. It has it's own computer, filesystem and mailbox. It works proactively, remembers what you've asked it to do, and gets better over time.
+          - generic [ref=e294]:
+            - generic [ref=e297]:
+              - generic [ref=e298]: 📁
+              - generic [ref=e299]: Files
+            - generic [ref=e302]:
+              - generic [ref=e303]: 📬
+              - generic [ref=e304]: Mailbox
+            - generic [ref=e307]:
+              - generic [ref=e308]: 🧠
+              - generic [ref=e309]: Memories
+            - generic [ref=e312]:
+              - generic [ref=e313]: 🔌
+              - generic [ref=e314]: Integrations
+        - generic [ref=e316]:
+          - heading "You can talk to Goose from anywhere, anytime." [level=3] [ref=e317]
+          - paragraph [ref=e318]: Send an email, a message in Slack, or use the web app — it all just works.
+          - generic [ref=e319]:
+            - img "Slack" [ref=e321]
+            - img "Web App" [ref=e323]
+            - img "iMessage" [ref=e325]
+            - img "Telegram" [ref=e327]
+        - generic [ref=e330]:
+          - heading "Goose knows how to" [level=3] [ref=e331]
+          - paragraph [ref=e332]: You just have to ask.
+          - generic [ref=e336]:
+            - generic [ref=e337]: run outbound campaigns
+            - generic [ref=e338]: manage your SEO
+            - generic [ref=e339]: analyze your web traffic
+            - generic [ref=e340]: research competitors
+            - generic [ref=e341]: write content at scale
+            - generic [ref=e342]: enrich your CRM
+            - generic [ref=e343]: draft email sequences
+            - generic [ref=e344]: generate lead lists
+            - generic [ref=e345]: monitor brand mentions
+            - generic [ref=e346]: analyze product usage
+            - generic [ref=e347]: automate follow-ups
+            - generic [ref=e348]: repurpose blog posts
+            - generic [ref=e349]: run outbound campaigns
+            - generic [ref=e350]: manage your SEO
+            - generic [ref=e351]: analyze your web traffic
+            - generic [ref=e352]: research competitors
+            - generic [ref=e353]: write content at scale
+            - generic [ref=e354]: enrich your CRM
+            - generic [ref=e355]: draft email sequences
+            - generic [ref=e356]: generate lead lists
+            - generic [ref=e357]: monitor brand mentions
+            - generic [ref=e358]: analyze product usage
+            - generic [ref=e359]: automate follow-ups
+            - generic [ref=e360]: repurpose blog posts
+        - generic [ref=e363]:
+          - heading "Goose remembers." [level=3] [ref=e364]
+          - paragraph [ref=e365]: Goose learns, adapts, and gets better over time.
+    - generic [ref=e369]:
+      - heading "Loved by thousands of teams" [level=2] [ref=e370]
+      - paragraph [ref=e372]: Goose is used by thousands of fast growing startups around the world.
+      - generic [ref=e373]:
+        - paragraph [ref=e375]: We went from 10 hours a week on SEO to fully automated pipelines. Goose researches, writes, and publishes better than our freelancers.
+        - generic [ref=e376]:
+          - paragraph [ref=e378]: Having AI agents with their own email and memory changed everything. It feels like a team that works 24/7.
+          - paragraph [ref=e380]: We ship outbound campaigns in minutes now, not days. Goose handles the research, personalization, and sequencing end to end.
+    - generic [ref=e382]:
+      - paragraph [ref=e383]: Pricing
+      - heading "Simple, transparent pricing" [level=2] [ref=e384]
+      - paragraph [ref=e385]: Start free. Scale as you grow.
+      - generic [ref=e386]:
+        - generic [ref=e387]:
+          - heading "Free" [level=3] [ref=e388]
+          - generic [ref=e389]: Free
+          - paragraph [ref=e390]: Get started for free
+          - list [ref=e391]:
+            - listitem [ref=e392]:
+              - img [ref=e393]
+              - text: 1 Goose coworker
+            - listitem [ref=e395]:
+              - img [ref=e396]
+              - text: 500 credits
+            - listitem [ref=e398]:
+              - img [ref=e399]
+              - text: Chat from anywhere
+            - listitem [ref=e401]:
+              - img [ref=e402]
+              - text: Connect all your tools
+            - listitem [ref=e404]:
+              - img [ref=e405]
+              - text: 100+ pre-installed skills
+          - link "Get Started" [ref=e407] [cursor=pointer]:
+            - /url: https://app.gooseworks.sh
+        - generic [ref=e408]:
+          - heading "Starter" [level=3] [ref=e409]
+          - generic [ref=e410]: $29/mo
+          - paragraph [ref=e411]: For individuals
+          - list [ref=e412]:
+            - listitem [ref=e413]:
+              - img [ref=e414]
+              - text: 1 Goose coworker
+            - listitem [ref=e416]:
+              - img [ref=e417]
+              - text: 2000 credits
+            - listitem [ref=e419]:
+              - img [ref=e420]
+              - text: Unlimited team members
+          - link "Get Started" [ref=e422] [cursor=pointer]:
+            - /url: https://app.gooseworks.sh
+        - generic [ref=e423]:
+          - generic [ref=e424]: Most Popular
+          - heading "Pro" [level=3] [ref=e425]
+          - generic [ref=e426]: $99/mo
+          - paragraph [ref=e427]: For small teams
+          - list [ref=e428]:
+            - listitem [ref=e429]:
+              - img [ref=e430]
+              - text: 3 Goose coworkers
+            - listitem [ref=e432]:
+              - img [ref=e433]
+              - text: 8,000 credits
+            - listitem [ref=e435]:
+              - img [ref=e436]
+              - text: Unlimited team members
+            - listitem [ref=e438]:
+              - img [ref=e439]
+              - text: Priority support
+          - link "Get Started" [ref=e441] [cursor=pointer]:
+            - /url: https://app.gooseworks.sh
+        - generic [ref=e442]:
+          - heading "Business" [level=3] [ref=e443]
+          - generic [ref=e444]: $299/mo
+          - paragraph [ref=e445]: For growing teams
+          - list [ref=e446]:
+            - listitem [ref=e447]:
+              - img [ref=e448]
+              - text: Unlimited Goose coworkers
+            - listitem [ref=e450]:
+              - img [ref=e451]
+              - text: 50,000 credits
+            - listitem [ref=e453]:
+              - img [ref=e454]
+              - text: Unlimited team members
+            - listitem [ref=e456]:
+              - img [ref=e457]
+              - text: Dedicated support
+          - link "Get Started" [ref=e459] [cursor=pointer]:
+            - /url: https://app.gooseworks.sh
+    - contentinfo [ref=e460]:
+      - generic [ref=e462]:
+        - generic [ref=e463]:
+          - generic [ref=e464]:
+            - paragraph [ref=e465]: Product
+            - list [ref=e466]:
+              - listitem [ref=e467]:
+                - link "Try Gooseworks" [ref=e468] [cursor=pointer]:
+                  - /url: https://app.gooseworks.sh
+              - listitem [ref=e469]:
+                - link "Skills" [ref=e470] [cursor=pointer]:
+                  - /url: https://skills.gooseworks.sh
+              - listitem [ref=e471]:
+                - link "Blog" [ref=e472] [cursor=pointer]:
+                  - /url: https://blog.gooseworks.sh
+              - listitem [ref=e473]:
+                - link "Documentation" [ref=e474] [cursor=pointer]:
+                  - /url: https://docs.gooseworks.sh
+          - generic [ref=e475]:
+            - paragraph [ref=e476]: Solutions
+            - list [ref=e477]:
+              - listitem [ref=e478]:
+                - link "Alternatives" [ref=e479] [cursor=pointer]:
+                  - /url: https://skills.gooseworks.sh/alternatives
+              - listitem [ref=e480]:
+                - link "Integrations" [ref=e481] [cursor=pointer]:
+                  - /url: https://skills.gooseworks.sh/integrations
+              - listitem [ref=e482]:
+                - link "Use Cases" [ref=e483] [cursor=pointer]:
+                  - /url: https://skills.gooseworks.sh/use-cases
+              - listitem [ref=e484]:
+                - link "Roles" [ref=e485] [cursor=pointer]:
+                  - /url: https://skills.gooseworks.sh/roles
+          - generic [ref=e486]:
+            - paragraph [ref=e487]: Company
+            - list [ref=e488]:
+              - listitem [ref=e489]:
+                - link "Privacy Policy" [ref=e490] [cursor=pointer]:
+                  - /url: /privacy
+              - listitem [ref=e491]:
+                - link "Terms" [ref=e492] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e493]:
+                - link "Contact" [ref=e494] [cursor=pointer]:
+                  - /url: mailto:goose@gooseworks.ai
+          - generic [ref=e495]:
+            - paragraph [ref=e496]: Connect
+            - list [ref=e497]:
+              - listitem [ref=e498]:
+                - link "Twitter" [ref=e499] [cursor=pointer]:
+                  - /url: https://x.com/notaigoose
+              - listitem [ref=e500]:
+                - link "LinkedIn" [ref=e501] [cursor=pointer]:
+                  - /url: https://www.linkedin.com/company/gooseworks-ai
+              - listitem [ref=e502]:
+                - link "GitHub" [ref=e503] [cursor=pointer]:
+                  - /url: https://github.com/athina-ai/goose-skills
+        - paragraph [ref=e505]: Gooseworks
+        - generic [ref=e506]:
+          - generic [ref=e507]: © 2026 Gooseworks
+          - link "Privacy Policy" [ref=e508] [cursor=pointer]:
+            - /url: /privacy
+          - link "Terms" [ref=e509] [cursor=pointer]:
+            - /url: /terms
+  - alert [ref=e510]
+  - generic [ref=e511]:
+    - paragraph [ref=e512]:
+      - text: We use cookies to measure site performance and improve your experience. See our
+      - link "Privacy Policy" [ref=e513] [cursor=pointer]:
+        - /url: /privacy
+      - text: .
+    - generic [ref=e514]:
+      - button "Accept" [ref=e515] [cursor=pointer]
+      - button "Decline" [ref=e516] [cursor=pointer]

@@ -1,0 +1,68 @@
+- generic [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e7]:
+      - generic [ref=e8]:
+        - button "Session actions" [ref=e11] [cursor=pointer]:
+          - img
+        - generic [ref=e15]:
+          - progressbar "grid-loading" [ref=e19]:
+            - img [ref=e20]
+          - generic [ref=e32]:
+            - textbox "Ask Goose to get things done..." [active] [ref=e34]
+            - generic [ref=e35]:
+              - combobox "Select model" [ref=e36] [cursor=pointer]:
+                - generic: Sonnet 4.6
+                - img
+              - button "Plan" [ref=e37]:
+                - img [ref=e38]
+                - text: Plan
+              - button "Think" [ref=e41]:
+                - img [ref=e42]
+                - text: Think
+              - button "Attach" [ref=e52]:
+                - img [ref=e53]
+                - text: Attach
+            - button "Send message" [ref=e56]:
+              - img [ref=e57]
+      - generic [ref=e59]:
+        - separator "Resize right sidebar" [ref=e60]
+        - button "Collapse right sidebar" [ref=e62] [cursor=pointer]:
+          - img
+        - generic [ref=e64]:
+          - tablist [ref=e66]:
+            - tab "Files" [selected] [ref=e67] [cursor=pointer]:
+              - img [ref=e68]
+              - text: Files
+            - tab "Skills" [ref=e71] [cursor=pointer]:
+              - img [ref=e72]
+              - text: Skills
+            - tab "MCP" [ref=e76] [cursor=pointer]:
+              - img [ref=e77]
+              - text: MCP
+          - tabpanel "Files" [ref=e83]:
+            - generic [ref=e84]:
+              - generic [ref=e85]:
+                - generic [ref=e86]:
+                  - generic [ref=e87]:
+                    - button "Agent" [ref=e88]
+                    - button "Shared" [ref=e89]
+                  - generic "Sync limited" [ref=e90]:
+                    - generic [ref=e92]: Sync limited
+                - generic [ref=e93]:
+                  - button "Create" [ref=e94]:
+                    - img [ref=e95]
+                  - button "Refresh" [ref=e96]:
+                    - img [ref=e97]
+                  - button "Expand all folders" [ref=e102]:
+                    - img [ref=e103]
+                  - button "Collapse all folders" [ref=e106]:
+                    - img [ref=e107]
+              - generic [ref=e111]:
+                - button "Chat" [ref=e112]
+                - button "All" [ref=e113]
+              - generic [ref=e114]:
+                - img [ref=e115]
+                - textbox "Search files..." [ref=e118]
+              - generic [ref=e120]: Loading files...
+  - region "Notifications alt+T"
+  - alert [ref=e121]
