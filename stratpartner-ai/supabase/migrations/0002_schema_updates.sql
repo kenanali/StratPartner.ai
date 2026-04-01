@@ -4,58 +4,7 @@
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
--- 1. files table — add missing columns
--- ---------------------------------------------------------------------------
-alter table files
-  add column if not exists name text,
-  add column if not exists mime_type text,
-  add column if not exists is_active boolean default true,
-  add column if not exists project_id uuid references projects(id) on delete set null;
-
--- Backfill name from filename for existing rows
-update files set name = filename where name is null;
-
--- ---------------------------------------------------------------------------
--- 2. file_chunks table — add content column + vector index
--- ---------------------------------------------------------------------------
-alter table file_chunks
-  add column if not exists content text generated always as (chunk_text) stored,
-  add column if not exists chunk_index integer;
-
--- Vector index for cosine similarity search
-create index if not exists file_chunks_embedding_idx
-  on file_chunks using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
-
--- ---------------------------------------------------------------------------
--- 3. skills table — add missing columns
--- ---------------------------------------------------------------------------
-alter table skills
-  add column if not exists name text,
-  add column if not exists description text,
-  add column if not exists content text,
-  add column if not exists track text default 'cx';
-
--- Backfill name from title for existing rows
-update skills set name = title where name is null;
-
--- ---------------------------------------------------------------------------
--- 4. messages table — add missing columns
--- ---------------------------------------------------------------------------
-alter table messages
-  add column if not exists channel text default 'web',
-  add column if not exists skill_used text,
-  add column if not exists project_id uuid;
-
--- ---------------------------------------------------------------------------
--- 5. orgs table — add user_id for auth
--- ---------------------------------------------------------------------------
-alter table orgs
-  add column if not exists user_id uuid,
-  add column if not exists tier text default 'agent';
-
--- ---------------------------------------------------------------------------
--- 6. Engagement model tables
+-- 1. Engagement model tables (must come before foreign key references)
 -- ---------------------------------------------------------------------------
 
 -- Projects (engagements within an org)
@@ -114,7 +63,6 @@ create table if not exists sessions (
   type          text not null default 'working',
   title         text,
   channel       text default 'chat',
-  meeting_id    uuid references meetings(id) on delete set null,
   decisions     jsonb,
   tasks_created jsonb,
   summary       text,
@@ -132,6 +80,57 @@ create table if not exists intakes (
   completed_at  timestamptz,
   created_at    timestamptz default now()
 );
+
+-- ---------------------------------------------------------------------------
+-- 2. files table — add missing columns (projects must exist first)
+-- ---------------------------------------------------------------------------
+alter table files
+  add column if not exists name text,
+  add column if not exists mime_type text,
+  add column if not exists is_active boolean default true,
+  add column if not exists project_id uuid references projects(id) on delete set null;
+
+-- Backfill name from filename for existing rows
+update files set name = filename where name is null;
+
+-- ---------------------------------------------------------------------------
+-- 3. file_chunks table — add content column + vector index
+-- ---------------------------------------------------------------------------
+alter table file_chunks
+  add column if not exists content text generated always as (chunk_text) stored,
+  add column if not exists chunk_index integer;
+
+-- Vector index for cosine similarity search
+create index if not exists file_chunks_embedding_idx
+  on file_chunks using ivfflat (embedding vector_cosine_ops)
+  with (lists = 100);
+
+-- ---------------------------------------------------------------------------
+-- 4. skills table — add missing columns
+-- ---------------------------------------------------------------------------
+alter table skills
+  add column if not exists name text,
+  add column if not exists description text,
+  add column if not exists content text,
+  add column if not exists track text default 'cx';
+
+-- Backfill name from title for existing rows
+update skills set name = title where name is null;
+
+-- ---------------------------------------------------------------------------
+-- 5. messages table — add missing columns
+-- ---------------------------------------------------------------------------
+alter table messages
+  add column if not exists channel text default 'web',
+  add column if not exists skill_used text,
+  add column if not exists project_id uuid;
+
+-- ---------------------------------------------------------------------------
+-- 6. orgs table — add user_id for auth
+-- ---------------------------------------------------------------------------
+alter table orgs
+  add column if not exists user_id uuid,
+  add column if not exists tier text default 'agent';
 
 -- ---------------------------------------------------------------------------
 -- 7. match_file_chunks RPC function for vector similarity search

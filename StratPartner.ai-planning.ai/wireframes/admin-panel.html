@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>stratpartner.ai — Admin Panel Wireframe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f8f9fa;
+    height: 100vh;
+    overflow: hidden;
+    font-size: 13px;
+  }
+
+  .app {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* ─── ADMIN SIDEBAR ─── */
+  .sidebar {
+    width: 220px;
+    background: #111827;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid #1f2937;
+  }
+
+  .admin-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .logo-icon {
+    width: 24px;
+    height: 24px;
+    background: #4f46e5;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+
+  .logo-text {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+  }
+
+  .admin-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .nav-section-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #4b5563;
+    padding: 10px 10px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .nav-item:hover { background: #1f2937; color: #d1d5db; }
+  .nav-item.active { background: #1f2937; color: #ffffff; }
+  .nav-icon { font-size: 13px; width: 16px; text-align: center; }
+
+  .nav-count {
+    margin-left: auto;
+    font-size: 10px;
+    background: #374151;
+    color: #9ca3af;
+    padding: 1px 5px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  .sidebar-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #1f2937;
+    font-size: 11px;
+    color: #4b5563;
+  }
+
+  /* ─── MAIN ─── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #f9fafb;
+  }
+
+  /* Top bar */
+  .topbar {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .topbar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    letter-spacing: -0.2px;
+  }
+
+  .topbar-sub {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 1px;
+  }
+
+  .btn-primary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: #4f46e5;
+    color: #ffffff;
+    border: none;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-primary:hover { background: #4338ca; }
+
+  .btn-ghost {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: transparent;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-ghost:hover { background: #f3f4f6; color: #374151; }
+
+  .btn-danger-ghost {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background: transparent;
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .btn-danger-ghost:hover { background: rgba(239, 68, 68, 0.05); }
+
+  /* Content area */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 24px;
+    background: #ffffff;
+    padding: 0 24px;
+    margin: -24px -24px 24px -24px;
+  }
+
+  .tab {
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #9ca3af;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .tab:hover { color: #374151; }
+  .tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+
+  /* Table */
+  .table-wrapper {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .table-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .search-input {
+    padding: 6px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #374151;
+    background: #f9fafb;
+    outline: none;
+    width: 220px;
+    font-family: inherit;
+  }
+
+  .search-input::placeholder { color: #9ca3af; }
+  .search-input:focus { border-color: #4f46e5; background: #fff; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 10px 16px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #9ca3af;
+    background: #f9fafb;
+    border-bottom: 1px solid #f3f4f6;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f9fafb;
+    transition: background 0.1s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f9fafb; }
+
+  tbody td {
+    padding: 12px 16px;
+    color: #374151;
+    vertical-align: middle;
+  }
+
+  .org-name-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .org-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(79, 70, 229, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4f46e5;
+    flex-shrink: 0;
+  }
+
+  .org-name {
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .org-slug {
+    font-size: 11px;
+    color: #9ca3af;
+    font-family: 'Menlo', monospace;
+  }
+
+  .tier-badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: capitalize;
+  }
+
+  .tier-badge.agent { background: rgba(79, 70, 229, 0.1); color: #4f46e5; }
+  .tier-badge.advisory { background: rgba(16, 185, 129, 0.1); color: #059669; }
+  .tier-badge.fractional { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+
+  .status-badge.active { background: rgba(16, 185, 129, 0.1); color: #059669; }
+  .status-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  .actions-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .link-btn {
+    font-size: 12px;
+    color: #4f46e5;
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 4px;
+    transition: background 0.1s;
+  }
+
+  .link-btn:hover { background: rgba(79, 70, 229, 0.06); }
+
+  /* Org Detail Panel (right drawer) */
+  .detail-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 480px;
+    height: 100vh;
+    background: #ffffff;
+    border-left: 1px solid #e5e7eb;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.06);
+    display: flex;
+    flex-direction: column;
+    z-index: 50;
+    transition: transform 0.25s ease;
+  }
+
+  .detail-panel.hidden { transform: translateX(100%); }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  .panel-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: #9ca3af;
+  }
+
+  .panel-close:hover { background: #f3f4f6; }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .panel-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #9ca3af;
+  }
+
+  .memory-editor {
+    width: 100%;
+    min-height: 140px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #374151;
+    line-height: 1.6;
+    resize: vertical;
+    font-family: inherit;
+    outline: none;
+    background: #f9fafb;
+  }
+
+  .memory-editor:focus { border-color: #4f46e5; background: #fff; }
+
+  .skill-toggle-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .skill-toggle-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f9fafb;
+    border: 1px solid #f3f4f6;
+    border-radius: 8px;
+  }
+
+  .skill-toggle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .skill-toggle-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .skill-toggle-track {
+    font-size: 10px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* Toggle switch */
+  .toggle {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #d1d5db;
+    border-radius: 999px;
+    transition: 0.2s;
+  }
+
+  .toggle-slider:before {
+    position: absolute;
+    content: '';
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+
+  .toggle input:checked + .toggle-slider { background: #4f46e5; }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(16px); }
+
+  /* Activity monitor */
+  .monitor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .monitor-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .monitor-item:last-child { border-bottom: none; }
+
+  .monitor-org-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(79, 70, 229, 0.08);
+    color: #4f46e5;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .monitor-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #374151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .monitor-time {
+    font-size: 11px;
+    color: #d1d5db;
+    flex-shrink: 0;
+  }
+
+  /* Wireframe note */
+  .wireframe-note {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #92400e;
+    z-index: 200;
+  }
+
+  /* overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.2);
+    z-index: 40;
+    display: none;
+  }
+
+  .overlay.visible { display: block; }
+</style>
+</head>
+<body>
+
+<div class="wireframe-note">⚙ Wireframe — stratpartner.ai Admin Panel</div>
+
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+
+<div class="app">
+
+  <!-- ADMIN SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="admin-badge">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">stratpartner.ai</div>
+      </div>
+      <div class="admin-label">Admin</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Clients</div>
+      <div class="nav-item active">
+        <span class="nav-icon">🏢</span>
+        Organisations
+        <span class="nav-count">5</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">📊</span>
+        Activity Monitor
+      </div>
+
+      <div class="nav-section-label">Product</div>
+      <div class="nav-item">
+        <span class="nav-icon">⚡</span>
+        Skills Library
+        <span class="nav-count">11</span>
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">🧠</span>
+        SOUL.md
+      </div>
+
+      <div class="nav-section-label">System</div>
+      <div class="nav-item">
+        <span class="nav-icon">📈</span>
+        Usage & Costs
+      </div>
+      <div class="nav-item">
+        <span class="nav-icon">⚙</span>
+        Settings
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      kenanmir@gmail.com<br>
+      Logged in as admin
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Organisations</div>
+        <div class="topbar-sub">5 active clients · $7,500/mo total revenue</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-ghost">Export CSV</button>
+        <button class="btn-primary" onclick="showCreateModal()">+ Create Org</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <div class="tab active">All Orgs</div>
+        <div class="tab">Agent (3)</div>
+        <div class="tab">Advisory (1)</div>
+        <div class="tab">Fractional (1)</div>
+      </div>
+
+      <!-- Orgs Table -->
+      <div class="table-wrapper">
+        <div class="table-header">
+          <input type="text" class="search-input" placeholder="Search organisations...">
+          <div style="font-size: 12px; color: #9ca3af;">5 organisations</div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Organisation</th>
+              <th>Tier</th>
+              <th>Client Email</th>
+              <th>Conversations</th>
+              <th>Last Active</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="org-name-cell">
+                  <div class="org-avatar">AC</div>
+                  <div>
+                    <div class="org-name">Acme Corporation</div>
+                    <div class="org-slug">acme-corp</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="tier-badge agent">Agent</span></td>
+              <td style="color: #6b7280;">kenanmir@gmail.com</td>
+              <td>47</td>
+              <td>2 hours ago</td>
+              <td><span class="status-badge active"><span class="dot"></span>Active</span></td>
+              <td>
+                <div class="actions-cell">
+                  <span class="link-btn" onclick="openPanel('Acme Corporation')">Edit →</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="org-name-cell">
+                  <div class="org-avatar" style="background: rgba(16,185,129,0.1); color: #059669;">MH</div>
+                  <div>
+                    <div class="org-name">MedHealth Group</div>
+                    <div class="org-slug">medhealth</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="tier-badge advisory">Advisory</span></td>
+              <td style="color: #6b7280;">ceo@medhealth.com</td>
+              <td>92</td>
+              <td>Yesterday</td>
+              <td><span class="status-badge active"><span class="dot"></span>Active</span></td>
+              <td>
+                <div class="actions-cell">
+                  <span class="link-btn" onclick="openPanel('MedHealth Group')">Edit →</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="org-name-cell">
+                  <div class="org-avatar" style="background: rgba(245,158,11,0.1); color: #d97706;">PT</div>
+                  <div>
+                    <div class="org-name">Polaris Technologies</div>
+                    <div class="org-slug">polaris-tech</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="tier-badge fractional">Fractional</span></td>
+              <td style="color: #6b7280;">vpcx@polaris.io</td>
+              <td>214</td>
+              <td>3 hours ago</td>
+              <td><span class="status-badge active"><span class="dot"></span>Active</span></td>
+              <td>
+                <div class="actions-cell">
+                  <span class="link-btn" onclick="openPanel('Polaris Technologies')">Edit →</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="org-name-cell">
+                  <div class="org-avatar" style="background: rgba(99,102,241,0.1); color: #6366f1;">BL</div>
+                  <div>
+                    <div class="org-name">Bloom Retail</div>
+                    <div class="org-slug">bloom-retail</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="tier-badge agent">Agent</span></td>
+              <td style="color: #6b7280;">cx@bloomretail.com</td>
+              <td>18</td>
+              <td>4 days ago</td>
+              <td><span class="status-badge active"><span class="dot"></span>Active</span></td>
+              <td>
+                <div class="actions-cell">
+                  <span class="link-btn" onclick="openPanel('Bloom Retail')">Edit →</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="org-name-cell">
+                  <div class="org-avatar" style="background: #f3f4f6; color: #9ca3af;">TF</div>
+                  <div>
+                    <div class="org-name">TerraForm Inc</div>
+                    <div class="org-slug">terraform-inc</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="tier-badge agent">Agent</span></td>
+              <td style="color: #6b7280;">ops@terraform.co</td>
+              <td>6</td>
+              <td>2 weeks ago</td>
+              <td><span class="status-badge" style="background: #f3f4f6; color: #9ca3af;"><span class="dot" style="background: #d1d5db;"></span>Low usage</span></td>
+              <td>
+                <div class="actions-cell">
+                  <span class="link-btn" onclick="openPanel('TerraForm Inc')">Edit →</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Activity Monitor Preview -->
+      <div class="table-wrapper">
+        <div class="table-header">
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af;">Live Activity</span>
+          <span style="font-size: 12px; color: #4f46e5; cursor: pointer; font-weight: 500;">View all →</span>
+        </div>
+        <div style="padding: 8px 16px;">
+          <div class="monitor-list">
+            <div class="monitor-item">
+              <span class="monitor-org-pill">ACME</span>
+              <span class="monitor-text">💬 "What's our current NPS baseline for enterprise onboarding?"</span>
+              <span class="monitor-time">2 hrs ago</span>
+            </div>
+            <div class="monitor-item">
+              <span class="monitor-org-pill">POLARIS</span>
+              <span class="monitor-text">⚡ Skill activated: Prioritize</span>
+              <span class="monitor-time">3 hrs ago</span>
+            </div>
+            <div class="monitor-item">
+              <span class="monitor-org-pill">MEDHEALTH</span>
+              <span class="monitor-text">🎥 Meeting joined — 38 min · 2 decisions extracted</span>
+              <span class="monitor-time">Yesterday</span>
+            </div>
+            <div class="monitor-item">
+              <span class="monitor-org-pill">ACME</span>
+              <span class="monitor-text">📄 File uploaded — Stakeholder Research Summary.docx</span>
+              <span class="monitor-time">Yesterday</span>
+            </div>
+            <div class="monitor-item">
+              <span class="monitor-org-pill">POLARIS</span>
+              <span class="monitor-text">🎙 Interview completed — Sarah Chen · 22 min</span>
+              <span class="monitor-time">Mar 25</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+</div>
+
+<!-- ORG DETAIL PANEL (slide-in drawer) -->
+<div class="detail-panel hidden" id="detail-panel">
+  <div class="panel-header">
+    <div>
+      <div class="panel-title" id="panel-org-name">Acme Corporation</div>
+      <div style="font-size: 11px; color: #9ca3af; margin-top: 2px;">Org detail · Agent tier</div>
+    </div>
+    <button class="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div class="panel-body">
+
+    <!-- Org Settings -->
+    <div class="panel-section">
+      <div class="panel-section-title">Organisation Settings</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <div>
+          <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Name</div>
+          <input type="text" value="Acme Corporation" style="width: 100%; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: inherit; outline: none; color: #111827;">
+        </div>
+        <div>
+          <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Tier</div>
+          <select style="width: 100%; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: inherit; outline: none; color: #111827; background: #fff;">
+            <option selected>Agent ($500/mo)</option>
+            <option>Advisory ($5k–8k/mo)</option>
+            <option>Fractional ($15k–25k/mo)</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Slug</div>
+          <input type="text" value="acme-corp" style="width: 100%; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: 'Menlo', monospace; outline: none; color: #4f46e5; background: #f9fafb;">
+        </div>
+        <div>
+          <div style="font-size: 11px; color: #6b7280; margin-bottom: 4px;">Client Email</div>
+          <input type="text" value="kenanmir@gmail.com" style="width: 100%; padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-family: inherit; outline: none; color: #111827;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory Editor -->
+    <div class="panel-section">
+      <div class="panel-section-title">Strategic Memory</div>
+      <textarea class="memory-editor">Acme's CX transformation is in early Phase 2. NPS baseline established at 32 (enterprise onboarding), significantly below the industry benchmark of 61.
+
+Primary blocker: IT provisioning for multi-country enterprise accounts averaging 18 days against a 5-day target. Root cause appears to be SSO configuration complexity and lack of a dedicated implementation manager.
+
+Key decision (March 21): Team agreed to prioritise onboarding before expanding into retention programs. Sarah Chen owns the onboarding workstream. Board review scheduled end of Q2 2025.
+
+Tension to watch: CS team wants more headcount; leadership wants to solve with process and tooling. This will resurface at Q2 review.</textarea>
+      <button class="btn-primary" style="align-self: flex-start; font-size: 11px; padding: 6px 12px;">Save Memory</button>
+    </div>
+
+    <!-- Skills Toggles -->
+    <div class="panel-section">
+      <div class="panel-section-title">Active Skills</div>
+      <div class="skill-toggle-list">
+        <div class="skill-toggle-item">
+          <div class="skill-toggle-info">
+            <div class="skill-toggle-name">Journey Map</div>
+            <div class="skill-toggle-track">CX</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="skill-toggle-item">
+          <div class="skill-toggle-info">
+            <div class="skill-toggle-name">Trend Scan</div>
+            <div class="skill-toggle-track">CX</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="skill-toggle-item">
+          <div class="skill-toggle-info">
+            <div class="skill-toggle-name">Persona Build</div>
+            <div class="skill-toggle-track">Research</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="skill-toggle-item">
+          <div class="skill-toggle-info">
+            <div class="skill-toggle-name">Scan Blockers</div>
+            <div class="skill-toggle-track">CX</div>
+          </div>
+          <label class="toggle"><input type="checkbox" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="skill-toggle-item">
+          <div class="skill-toggle-info">
+            <div class="skill-toggle-name">Brand Territories</div>
+            <div class="skill-toggle-track">Brand</div>
+          </div>
+          <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="skill-toggle-item">
+          <div class="skill-toggle-info">
+            <div class="skill-toggle-name">Brand Building Blocks</div>
+            <div class="skill-toggle-track">Brand</div>
+          </div>
+          <label class="toggle"><input type="checkbox"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger zone -->
+    <div class="panel-section">
+      <div class="panel-section-title">Danger Zone</div>
+      <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <button class="btn-danger-ghost">Reset Memory</button>
+        <button class="btn-danger-ghost">Deactivate Org</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function openPanel(orgName) {
+    document.getElementById('panel-org-name').textContent = orgName;
+    document.getElementById('detail-panel').classList.remove('hidden');
+    document.getElementById('overlay').classList.add('visible');
+  }
+
+  function closePanel() {
+    document.getElementById('detail-panel').classList.add('hidden');
+    document.getElementById('overlay').classList.remove('visible');
+  }
+
+  function showCreateModal() {
+    alert('In the real product: a modal with fields for org name, slug, tier, client email, and initial memory seed.');
+  }
+</script>
+
+</body>
+</html>

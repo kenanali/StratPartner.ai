@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>stratpartner.ai — Chat Interface Wireframe</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f8f9fa;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── LAYOUT ─── */
+  .app {
+    display: flex;
+    height: 100vh;
+  }
+
+  /* ─── SIDEBAR ─── */
+  .sidebar {
+    width: 260px;
+    background: #0f1117;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    border-right: 1px solid #1e2130;
+  }
+
+  .sidebar-logo {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid #1e2130;
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+    background: #4f46e5;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+
+  .logo-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: -0.2px;
+  }
+
+  .logo-text span {
+    color: #6b7280;
+  }
+
+  .sidebar-org {
+    padding: 16px 20px;
+    border-bottom: 1px solid #1e2130;
+  }
+
+  .org-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 4px;
+  }
+
+  .org-tier {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.1);
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-nav {
+    flex: 1;
+    padding: 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .nav-item:hover {
+    background: #1e2130;
+    color: #d1d5db;
+  }
+
+  .nav-item.active {
+    background: #1e2130;
+    color: #ffffff;
+  }
+
+  .nav-item .nav-icon {
+    font-size: 14px;
+    width: 18px;
+    text-align: center;
+  }
+
+  .nav-badge {
+    margin-left: auto;
+    font-size: 10px;
+    background: #374151;
+    color: #9ca3af;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 500;
+  }
+
+  .nav-badge.new {
+    background: rgba(79, 70, 229, 0.2);
+    color: #818cf8;
+  }
+
+  .sidebar-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #1e2130;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    flex-shrink: 0;
+  }
+
+  .avatar-info {
+    min-width: 0;
+  }
+
+  .avatar-name {
+    font-size: 12px;
+    font-weight: 500;
+    color: #d1d5db;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .avatar-email {
+    font-size: 11px;
+    color: #4b5563;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* ─── MAIN CHAT AREA ─── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    min-width: 0;
+  }
+
+  /* ─── CHAT HEADER ─── */
+  .chat-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f1f3f5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+  }
+
+  .chat-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111827;
+  }
+
+  .chat-subtitle {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-left: 4px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-ghost {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6b7280;
+    background: transparent;
+    border: 1px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-ghost:hover {
+    background: #f9fafb;
+    color: #374151;
+  }
+
+  /* ─── THREAD ─── */
+  .chat-thread {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    scroll-behavior: smooth;
+  }
+
+  /* ─── EMPTY STATE ─── */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px;
+  }
+
+  .empty-state-greeting {
+    font-size: 22px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+
+  .empty-state-sub {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 32px;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+
+  .empty-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-width: 480px;
+  }
+
+  .suggestion-chip {
+    padding: 8px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: #f9fafb;
+  }
+
+  .suggestion-chip:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.04);
+  }
+
+  /* ─── MESSAGE BUBBLES ─── */
+  .message-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .message-group.user {
+    align-self: flex-end;
+    align-items: flex-end;
+  }
+
+  .message-group.assistant {
+    align-self: flex-start;
+    align-items: flex-start;
+  }
+
+  .message-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  .message-meta .sender {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .message-meta .time {
+    font-size: 11px;
+    color: #d1d5db;
+  }
+
+  .skill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.08);
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    padding: 2px 8px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 100%;
+    position: relative;
+  }
+
+  .bubble.user {
+    background: #111827;
+    color: #ffffff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .bubble.assistant {
+    background: #f9fafb;
+    color: #1f2937;
+    border: 1px solid #f1f3f5;
+    border-bottom-left-radius: 4px;
+  }
+
+  .bubble.assistant h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    letter-spacing: -0.2px;
+  }
+
+  .bubble.assistant h2:first-child {
+    margin-top: 0;
+  }
+
+  .bubble.assistant h3 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    margin-top: 12px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .bubble.assistant p {
+    margin-bottom: 8px;
+    color: #374151;
+  }
+
+  .bubble.assistant ul {
+    padding-left: 20px;
+    margin-bottom: 8px;
+  }
+
+  .bubble.assistant li {
+    margin-bottom: 4px;
+    color: #374151;
+  }
+
+  .bubble.assistant strong {
+    color: #111827;
+    font-weight: 600;
+  }
+
+  .bubble.assistant table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 12px 0;
+  }
+
+  .bubble.assistant th {
+    background: #f1f5f9;
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .bubble.assistant td {
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    color: #4b5563;
+    vertical-align: top;
+  }
+
+  .bubble.assistant tr:nth-child(even) td {
+    background: #f9fafb;
+  }
+
+  /* Export button on assistant messages */
+  .bubble-actions {
+    display: none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    gap: 4px;
+  }
+
+  .message-group:hover .bubble-actions {
+    display: flex;
+  }
+
+  .action-btn {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    color: #6b7280;
+    cursor: pointer;
+    font-weight: 500;
+  }
+
+  .action-btn:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  /* Skill output divider */
+  .skill-divider {
+    border: none;
+    border-top: 1px solid #e5e7eb;
+    margin: 16px 0 12px;
+  }
+
+  .skill-footer {
+    background: rgba(79, 70, 229, 0.04);
+    border: 1px solid rgba(79, 70, 229, 0.1);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 12px;
+  }
+
+  .skill-footer-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #4f46e5;
+    margin-bottom: 6px;
+  }
+
+  .skill-footer-text {
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.5;
+  }
+
+  /* ─── SOURCE CARDS ─── */
+  .source-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+    max-width: 100%;
+  }
+
+  .source-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 12px;
+  }
+
+  .source-card-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .source-card-body {
+    min-width: 0;
+  }
+
+  .source-card-name {
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .source-card-excerpt {
+    color: #9ca3af;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border: 1px solid #f1f3f5;
+    border-radius: 12px;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+  }
+
+  .typing-dot {
+    width: 6px;
+    height: 6px;
+    background: #9ca3af;
+    border-radius: 50%;
+    animation: typing-bounce 1.4s infinite;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+  }
+
+  /* System message */
+  .system-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #9ca3af;
+    padding: 4px 0;
+  }
+
+  .system-message-text {
+    background: #f3f4f6;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+
+  /* ─── SKILL CHIPS ─── */
+  .skill-chips-row {
+    padding: 0 24px 12px;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .skill-chips-row::-webkit-scrollbar { display: none; }
+
+  .skill-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    background: #f9fafb;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .skill-chip:hover {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.04);
+  }
+
+  .skill-chip-icon {
+    font-size: 13px;
+  }
+
+  .skill-chip-more {
+    color: #9ca3af;
+    border-style: dashed;
+  }
+
+  /* ─── INPUT AREA ─── */
+  .input-area {
+    padding: 0 24px 24px;
+    border-top: none;
+  }
+
+  .input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 10px 12px 10px 16px;
+    transition: border-color 0.15s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: #4f46e5;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.06);
+  }
+
+  .input-attach {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #9ca3af;
+    padding: 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .input-attach:hover { color: #4f46e5; }
+
+  .chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #111827;
+    resize: none;
+    line-height: 1.5;
+    min-height: 22px;
+    max-height: 120px;
+    font-family: inherit;
+  }
+
+  .chat-input::placeholder { color: #9ca3af; }
+
+  .input-send {
+    width: 32px;
+    height: 32px;
+    background: #4f46e5;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    color: white;
+    font-size: 14px;
+  }
+
+  .input-send:hover { background: #4338ca; }
+  .input-send:disabled { background: #e5e7eb; cursor: not-allowed; }
+
+  /* ─── WIREFRAME NOTE ─── */
+  .wireframe-note {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #92400e;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ─── TABS WITHIN MAIN ─── */
+  .tab-bar {
+    display: none;
+  }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wireframe-note">⚡ Wireframe — stratpartner.ai Chat Interface</div>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">stratpartner<span>.ai</span></div>
+      </div>
+    </div>
+
+    <div class="sidebar-org">
+      <div class="org-name">Acme Corporation</div>
+      <div class="org-tier">⬤ Agent</div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a class="nav-item" href="#">
+        <span class="nav-icon">⊞</span>
+        Dashboard
+      </a>
+      <a class="nav-item active" href="#">
+        <span class="nav-icon">💬</span>
+        Chat
+      </a>
+      <a class="nav-item" href="#">
+        <span class="nav-icon">📄</span>
+        Files
+        <span class="nav-badge">4</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="nav-icon">🎙</span>
+        Interviews
+        <span class="nav-badge new">New</span>
+      </a>
+      <a class="nav-item" href="#">
+        <span class="nav-icon">🎥</span>
+        Meetings
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">KM</div>
+      <div class="avatar-info">
+        <div class="avatar-name">Kenan Mir</div>
+        <div class="avatar-email">kenanmir@gmail.com</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CHAT AREA -->
+  <main class="main">
+    <div class="chat-header">
+      <div class="chat-header-left">
+        <div class="status-dot"></div>
+        <span class="chat-title">Chat</span>
+        <span class="chat-subtitle">· stratpartner is ready</span>
+      </div>
+      <div class="header-actions">
+        <button class="btn-ghost" onclick="toggleView()">📋 Memory</button>
+        <button class="btn-ghost">⋯</button>
+      </div>
+    </div>
+
+    <!-- THREAD — toggle between empty state and conversation -->
+    <div class="chat-thread" id="thread">
+
+      <!-- EXAMPLE: System message (file upload) -->
+      <div class="system-message">
+        <span class="system-message-text">📄 I've read and embedded <strong>CX Maturity Report Q3 2024.pdf</strong>. You can now ask me questions about it.</span>
+      </div>
+
+      <!-- USER MESSAGE -->
+      <div class="message-group user">
+        <div class="message-meta">
+          <span class="time">2:14 PM</span>
+          <span class="sender">You</span>
+        </div>
+        <div class="bubble user">
+          /journey-map Walk me through the onboarding experience for a new enterprise customer. They've signed a contract and now need to activate 3,000 users across 5 countries.
+        </div>
+      </div>
+
+      <!-- ASSISTANT RESPONSE WITH SKILL -->
+      <div class="message-group assistant">
+        <div class="message-meta">
+          <span class="sender">stratpartner</span>
+          <span class="skill-badge">⚡ Journey Map</span>
+          <span class="time">2:14 PM</span>
+        </div>
+        <div class="bubble assistant" style="max-width: 680px; position: relative;">
+          <div class="bubble-actions">
+            <button class="action-btn">Copy ↗</button>
+            <button class="action-btn">Download .md</button>
+          </div>
+
+          <h2>Journey Map: Enterprise Onboarding</h2>
+          <p style="color: #6b7280; font-size: 13px;">stratpartner.ai · March 28, 2025</p>
+
+          <hr class="skill-divider">
+
+          <h3>Stage 1 — Contract Signed → Welcome</h3>
+          <table>
+            <tr>
+              <th>Touchpoint</th>
+              <th>What happens</th>
+              <th>Emotional state</th>
+              <th>Pain points</th>
+            </tr>
+            <tr>
+              <td>Countersign email</td>
+              <td>DocuSign completion email arrives</td>
+              <td>😌 Relieved, cautiously optimistic</td>
+              <td>No clear "what happens next" in the email</td>
+            </tr>
+            <tr>
+              <td>CSM intro email</td>
+              <td>CSM introduces themselves 48–72 hours later</td>
+              <td>😐 Neutral — waiting</td>
+              <td>Delay creates anxiety. Buyer wonders if they made the right choice.</td>
+            </tr>
+            <tr>
+              <td>Kickoff scheduling</td>
+              <td>Calendly link sent, 30-min kickoff booked</td>
+              <td>🙂 Engaged but uncertain</td>
+              <td>Calendar link feels transactional. No agenda or expectation setting.</td>
+            </tr>
+          </table>
+
+          <h3>Stage 2 — Kickoff → Admin Setup</h3>
+          <ul>
+            <li><strong>Moment of truth:</strong> The kickoff call. If the CSM shows up knowing the client's context, trust jumps. If they ask "can you tell me about your business?" — it drops immediately.</li>
+            <li><strong>Admin provisioning</strong> is where most large accounts stall. Requires IT involvement, SSO configuration, and permission mapping across 5 country orgs.</li>
+          </ul>
+
+          <h3>Key Opportunities</h3>
+          <ul>
+            <li>Send a "Your onboarding plan" document within 24 hours of contract — show them the roadmap</li>
+            <li>Build a CSM pre-brief template that pulls from CRM data so every kickoff starts with context</li>
+            <li>Create a dedicated multi-country admin playbook</li>
+          </ul>
+
+          <hr class="skill-divider">
+
+          <div class="skill-footer">
+            <div class="skill-footer-title">⚡ What I now know</div>
+            <div class="skill-footer-text">
+              The enterprise onboarding is likely where churn risk is highest — the 48–72 hour gap post-signature is a vulnerability. The multi-country admin problem is probably causing 2–3 week delays on average.<br><br>
+              <strong>Suggested next step:</strong> Run /scan-blockers on the provisioning workflow to identify what's causing the delay before recommending a fix.
+            </div>
+          </div>
+        </div>
+
+        <!-- SOURCE CARDS -->
+        <div class="source-cards" style="max-width: 680px;">
+          <div class="source-card">
+            <div class="source-card-icon">📄</div>
+            <div class="source-card-body">
+              <div class="source-card-name">CX Maturity Report Q3 2024.pdf</div>
+              <div class="source-card-excerpt">"…enterprise onboarding NPS sits at 32, significantly below the 61 benchmark. The primary driver identified in verbatims is time-to-value exceeding 45 days…"</div>
+            </div>
+          </div>
+          <div class="source-card">
+            <div class="source-card-icon">📄</div>
+            <div class="source-card-body">
+              <div class="source-card-name">Stakeholder Research Summary.docx</div>
+              <div class="source-card-excerpt">"…Sarah Chen noted in her interview that 'we lose deals in the first 30 days, not in the sales cycle'…"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- USER FOLLOW-UP -->
+      <div class="message-group user">
+        <div class="message-meta">
+          <span class="time">2:19 PM</span>
+          <span class="sender">You</span>
+        </div>
+        <div class="bubble user">
+          What's our current NPS baseline for enterprise onboarding?
+        </div>
+      </div>
+
+      <!-- SHORT ASSISTANT RESPONSE (no skill) -->
+      <div class="message-group assistant">
+        <div class="message-meta">
+          <span class="sender">stratpartner</span>
+          <span class="time">2:19 PM</span>
+        </div>
+        <div class="bubble assistant" style="max-width: 580px; position: relative;">
+          <div class="bubble-actions">
+            <button class="action-btn">Copy ↗</button>
+          </div>
+          Based on the CX Maturity Report, enterprise onboarding NPS is currently at <strong>32</strong>, compared to an industry benchmark of 61. The primary driver from verbatim feedback is time-to-value exceeding 45 days — which maps directly to the provisioning delay I flagged in the journey map.
+        </div>
+        <div class="source-cards" style="max-width: 580px;">
+          <div class="source-card">
+            <div class="source-card-icon">📄</div>
+            <div class="source-card-body">
+              <div class="source-card-name">CX Maturity Report Q3 2024.pdf</div>
+              <div class="source-card-excerpt">"Enterprise onboarding NPS: 32 (industry benchmark: 61)"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TYPING INDICATOR -->
+      <div class="message-group assistant" id="typing" style="display: none;">
+        <div class="message-meta">
+          <span class="sender">stratpartner</span>
+        </div>
+        <div class="typing-indicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SKILL CHIPS ROW -->
+    <div class="skill-chips-row">
+      <span class="skill-chip" onclick="insertSlash('journey-map')"><span class="skill-chip-icon">🗺</span> Journey Map</span>
+      <span class="skill-chip" onclick="insertSlash('trend-scan')"><span class="skill-chip-icon">📊</span> Trend Scan</span>
+      <span class="skill-chip" onclick="insertSlash('persona-build')"><span class="skill-chip-icon">👤</span> Persona Build</span>
+      <span class="skill-chip" onclick="insertSlash('scan-blockers')"><span class="skill-chip-icon">🚧</span> Scan Blockers</span>
+      <span class="skill-chip" onclick="insertSlash('prioritize')"><span class="skill-chip-icon">🎯</span> Prioritize</span>
+      <span class="skill-chip skill-chip-more">+6 more</span>
+    </div>
+
+    <!-- INPUT AREA -->
+    <div class="input-area">
+      <div class="input-wrapper">
+        <button class="input-attach" title="Upload a file">📎</button>
+        <textarea
+          id="chat-input"
+          class="chat-input"
+          rows="1"
+          placeholder="Ask a question, run a framework, or upload a document..."
+          onkeydown="handleKeydown(event)"
+          oninput="autoGrow(this)"
+        ></textarea>
+        <button class="input-send" id="send-btn" onclick="sendMessage()">↑</button>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script>
+  // Auto-grow textarea
+  function autoGrow(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  // Send on Enter (not Shift+Enter)
+  function handleKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  // Insert slash command
+  function insertSlash(slug) {
+    const input = document.getElementById('chat-input');
+    input.value = `/${slug} `;
+    input.focus();
+    autoGrow(input);
+  }
+
+  // Simulate send
+  function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    const thread = document.getElementById('thread');
+
+    // Add user message
+    const userMsg = document.createElement('div');
+    userMsg.className = 'message-group user';
+    userMsg.innerHTML = `
+      <div class="message-meta">
+        <span class="time">${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+        <span class="sender">You</span>
+      </div>
+      <div class="bubble user">${escapeHtml(msg)}</div>
+    `;
+    thread.appendChild(userMsg);
+
+    // Show typing
+    document.getElementById('typing').style.display = 'flex';
+    input.value = '';
+    autoGrow(input);
+    thread.scrollTop = thread.scrollHeight;
+
+    // Simulate response
+    setTimeout(() => {
+      document.getElementById('typing').style.display = 'none';
+      const resp = document.createElement('div');
+      resp.className = 'message-group assistant';
+      resp.innerHTML = `
+        <div class="message-meta">
+          <span class="sender">stratpartner</span>
+          <span class="time">${new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</span>
+        </div>
+        <div class="bubble assistant" style="max-width: 580px; position: relative;">
+          <div class="bubble-actions">
+            <button class="action-btn">Copy ↗</button>
+          </div>
+          I've noted that. Let me incorporate this into my understanding of the engagement. Is there anything specific you'd like me to focus on next?
+        </div>
+      `;
+      thread.appendChild(resp);
+      thread.scrollTop = thread.scrollHeight;
+    }, 1800);
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Toggle to empty state (for demo)
+  let showingEmpty = false;
+  function toggleView() {
+    // Not implemented in wireframe
+  }
+
+  // Scroll thread to bottom on load
+  window.addEventListener('load', () => {
+    const thread = document.getElementById('thread');
+    thread.scrollTop = thread.scrollHeight;
+  });
+</script>
+
+</body>
+</html>

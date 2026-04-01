@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createBrowserClient as _createBrowserClient } from '@supabase/ssr'
 
 let _supabase: SupabaseClient | null = null
 let _supabaseAdmin: SupabaseClient | null = null
@@ -22,3 +23,14 @@ export function getSupabaseAdmin(): SupabaseClient {
   }
   return _supabaseAdmin
 }
+
+/**
+ * Browser client for client components — reads/writes auth cookies automatically.
+ */
+export function createBrowserSupabase() {
+  return _createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+

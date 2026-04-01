@@ -11,6 +11,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",
     "@llamaindex/liteparse": "^1.4.2",
+    "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "@types/pdf-parse": "^1.1.5",
     "axios": "^1.14.0",
