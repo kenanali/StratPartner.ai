@@ -23,26 +23,6 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
     .eq('slug', params.orgSlug)
     .single()
 
-  // Fetch active agent run counts grouped by agent_role.
-  // The agent_runs table may not exist yet — default to {} on any error.
-  const activeRunsByRole: Record<string, number> = {}
-  try {
-    const { data: runs, error } = await supabase
-      .from('agent_runs')
-      .select('agent_role')
-      .eq('status', 'running')
-      .eq('org_id', org?.id ?? '')
-
-    if (!error && runs) {
-      for (const row of runs) {
-        const role = row.agent_role as string
-        activeRunsByRole[role] = (activeRunsByRole[role] ?? 0) + 1
-      }
-    }
-  } catch {
-    // Table doesn't exist yet — silently ignore
-  }
-
   // Fetch unread inbox count.
   // Gracefully handles the case where read_at column doesn't exist yet.
   let inboxUnread = 0
@@ -73,7 +53,6 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
       <Sidebar
         orgSlug={params.orgSlug}
         orgName={org?.name ?? params.orgSlug}
-        activeRunsByRole={activeRunsByRole}
         isAdmin={isAdmin}
         inboxUnread={inboxUnread}
       />

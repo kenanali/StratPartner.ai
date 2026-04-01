@@ -71,11 +71,38 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const SKILL_LABELS: Record<string, string> = {
+  'competitive-audit': 'Competitive Audit',
+  'persona-build': 'Persona Build',
+  'meeting-brief': 'Meeting Brief',
+  'battlecard-generator': 'Battlecard Generator',
+  'icp-identification': 'ICP Identification',
+  'campaign-brief-generator': 'Campaign Brief',
+  'qbr-deck-builder': 'QBR Deck',
+  'sales-call-prep': 'Sales Call Prep',
+  'journey-map': 'Journey Map',
+  'biz-case': 'Business Case',
+}
+
+function collectSuggestedSkills(actionItems: ActionItem[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const item of actionItems) {
+    if (item.suggested_skill_slug && !seen.has(item.suggested_skill_slug)) {
+      seen.add(item.suggested_skill_slug)
+      result.push(item.suggested_skill_slug)
+    }
+    if (result.length >= 3) break
+  }
+  return result
+}
+
 function buildProactiveBriefing(
   meeting: MeetingRow,
   findings: MeetingFindings,
   orgSlug: string,
-  tasksCreated: Array<{ task_id: string; title: string }>
+  tasksCreated: Array<{ task_id: string; title: string }>,
+  suggestedSkills: string[]
 ): string {
   const lines: string[] = []
   const title = meeting.title ?? 'Meeting'
@@ -112,6 +139,20 @@ function buildProactiveBriefing(
     lines.push(``)
     lines.push(`### Open questions`)
     findings.open_questions.forEach((q) => lines.push(`- ${q}`))
+  }
+
+  if (suggestedSkills.length > 0) {
+    lines.push(``)
+    lines.push(`### What to do next`)
+    lines.push(`Based on what I heard, here are the strategy skills most relevant right now:`)
+    suggestedSkills.forEach((slug) => {
+      const label = SKILL_LABELS[slug] ?? slug
+      const relevantItem = findings.action_items.find((a) => a.suggested_skill_slug === slug)
+      const context = relevantItem ? ` — ${relevantItem.text.slice(0, 80)}` : ''
+      lines.push(`- **${label}**${context}`)
+    })
+    lines.push(``)
+    lines.push(`Click a skill chip below to run it with this meeting as full context.`)
   }
 
   lines.push(``)
@@ -269,8 +310,9 @@ Extract strategic intelligence and return this exact JSON structure:
         // Non-critical — continue without source
       }
 
-      // 6. Create tasks from action items
+      // 6. Create tasks from action items + collect suggested skills
       const tasksCreated = await createTasksFromActionItems(meeting, findings.action_items ?? [])
+      const suggestedSkills = collectSuggestedSkills(findings.action_items ?? [])
 
       // 7. Update org memory
       if (findings.memory_update) {
@@ -293,7 +335,7 @@ Extract strategic intelligence and return this exact JSON structure:
       }
 
       // 9. Build + insert proactive briefing message
-      const briefingContent = buildProactiveBriefing(meeting, findings, resolvedOrgSlug, tasksCreated)
+      const briefingContent = buildProactiveBriefing(meeting, findings, resolvedOrgSlug, tasksCreated, suggestedSkills)
 
       // Find most recent session_id for this org
       const { data: recentMsg } = await supabase
@@ -315,6 +357,7 @@ Extract strategic intelligence and return this exact JSON structure:
           content: briefingContent,
           channel: 'recall',
           project_id: meeting.project_id ?? null,
+          suggested_skills: suggestedSkills,
         })
         .select('id')
         .single()

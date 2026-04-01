@@ -192,15 +192,32 @@ function InboxItem({ message, orgSlug, onRead }: ItemProps) {
 
       {/* Footer actions (shown when expanded) */}
       {expanded && (
-        <div className="px-5 pb-4 flex items-center gap-4">
-          {message.session_id && (
-            <Link
-              href={`/chat/${orgSlug}?session=${message.session_id}`}
-              className="text-xs font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
-            >
-              View in Chat →
-            </Link>
+        <div className="px-5 pb-4 space-y-3">
+          {/* Skill chips for meeting briefings */}
+          {message.channel === 'recall' && message.suggested_skills && message.suggested_skills.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {message.suggested_skills.slice(0, 3).map((slug) => (
+                <Link
+                  key={slug}
+                  href={`/chat/${orgSlug}?session=${message.session_id}&skill=/${slug}`}
+                  className="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-3 py-1 text-xs font-medium text-accent hover:bg-accent hover:text-white hover:border-accent transition-colors"
+                >
+                  <span>⚡</span>
+                  {slug}
+                </Link>
+              ))}
+            </div>
           )}
+          <div className="flex items-center gap-4">
+            {message.session_id && (
+              <Link
+                href={`/chat/${orgSlug}?session=${message.session_id}`}
+                className="text-xs font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded"
+              >
+                View in Chat →
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </li>

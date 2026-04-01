@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import RunTaskButton from './RunTaskButton'
+import InviteToMeetingButton from './InviteToMeetingButton'
 
 interface PageProps {
   params: { orgSlug: string; projectId: string }
@@ -40,13 +41,20 @@ export default async function ProjectPage({ params }: PageProps) {
   return (
     <div className="p-8">
       {/* Breadcrumb */}
-      <nav className="flex items-center gap-2 mb-6 text-sm">
-        <Link href={`/dashboard/${params.orgSlug}`} className="text-violet-600 hover:underline">
-          Dashboard
-        </Link>
-        <span className="text-gray-300">/</span>
-        <span className="font-semibold text-gray-900">{project.name}</span>
-        <span className="ml-1 text-xs rounded-full bg-gray-100 text-gray-600 px-2 py-0.5">{project.phase}</span>
+      <nav className="flex items-center justify-between gap-2 mb-6">
+        <div className="flex items-center gap-2 text-sm">
+          <Link href={`/dashboard/${params.orgSlug}`} className="text-violet-600 hover:underline">
+            Dashboard
+          </Link>
+          <span className="text-gray-300">/</span>
+          <span className="font-semibold text-gray-900">{project.name}</span>
+          <span className="ml-1 text-xs rounded-full bg-gray-100 text-gray-600 px-2 py-0.5">{project.phase}</span>
+        </div>
+        <InviteToMeetingButton
+          orgId={project.org_id}
+          projectId={project.id}
+          projectName={project.name}
+        />
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-2">

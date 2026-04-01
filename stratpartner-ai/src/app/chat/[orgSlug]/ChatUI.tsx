@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, ClipboardEvent } from 'react'
+import { useSearchParams } from 'next/navigation'
 
 interface Deliverable {
   id: string
@@ -18,10 +19,18 @@ interface ToolCallEntry {
 interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
+  channel?: string | null
   attachments?: PendingAttachment[]
   deliverable?: Deliverable
   toolCalls?: ToolCallEntry[]
   suggestedSkills?: string[]
+}
+
+interface ApiMessage {
+  role: 'user' | 'assistant'
+  content: string
+  channel?: string | null
+  suggested_skills?: string[] | null
 }
 
 interface Skill {
@@ -245,6 +254,7 @@ function ToolCallCard({ call }: { call: ToolCallEntry }) {
 // ---------------------------------------------------------------------------
 
 export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId, onSessionTitle }: ChatUIProps) {
+  const searchParams = useSearchParams()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
@@ -275,13 +285,33 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId, 
           fetch(`/api/messages?orgId=${orgId}&sessionId=${sessionId}&limit=20`),
           fetch(`/api/org-skills?orgId=${orgId}`),
         ])
-        if (msgRes.ok) { const d = await msgRes.json() as { messages: Message[] }; setMessages(d.messages ?? []) }
+        if (msgRes.ok) {
+          const d = await msgRes.json() as { messages: ApiMessage[] }
+          const mapped: Message[] = (d.messages ?? []).map((m) => ({
+            role: m.role,
+            content: m.content,
+            channel: m.channel ?? null,
+            suggestedSkills: m.suggested_skills?.length ? m.suggested_skills : undefined,
+          }))
+          setMessages(mapped)
+        }
         if (skillRes.ok) { const d = await skillRes.json() as { skills: Skill[] }; setSkills(d.skills ?? []) }
       } catch { setError('Failed to load') }
       finally { setIsLoading(false) }
     }
     load()
   }, [orgId, sessionId])
+
+  // Pre-fill ?skill= URL param on mount
+  useEffect(() => {
+    const skill = searchParams?.get('skill')
+    if (skill) {
+      const slug = skill.replace(/^\//, '')
+      setInput(`/${slug} `)
+      setTimeout(() => textareaRef.current?.focus(), 100)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!userScrolledUp.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -651,7 +681,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId, 
               )
             }
 
-            const isMeetingBriefing = msg.role === 'assistant' && msg.content.startsWith('## I was in your meeting')
+            const isMeetingBriefing = msg.role === 'assistant' && (msg.channel === 'recall' || msg.content.startsWith('## I was in your meeting'))
 
             if (msg.role === 'user') {
               return (
