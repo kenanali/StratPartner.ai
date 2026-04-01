@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
+import { Webhook } from 'svix'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { extractMeetingAsync } from '@/lib/meetingExtraction'
 
@@ -7,17 +7,19 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
-  // 1. Read raw body for HMAC verification
+  // 1. Read raw body for signature verification
   const rawBody = await req.text()
 
-  // 2. Verify signature (if secret is configured)
+  // 2. Verify Svix signature (Recall uses Svix for webhook delivery)
   if (process.env.RECALL_WEBHOOK_SECRET) {
-    const sig = req.headers.get('x-recall-signature') ?? ''
-    const expected = `sha256=${crypto
-      .createHmac('sha256', process.env.RECALL_WEBHOOK_SECRET)
-      .update(rawBody)
-      .digest('hex')}`
-    if (sig !== expected) {
+    const wh = new Webhook(process.env.RECALL_WEBHOOK_SECRET)
+    try {
+      wh.verify(rawBody, {
+        'svix-id': req.headers.get('svix-id') ?? '',
+        'svix-timestamp': req.headers.get('svix-timestamp') ?? '',
+        'svix-signature': req.headers.get('svix-signature') ?? '',
+      })
+    } catch {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
   }
