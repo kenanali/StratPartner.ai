@@ -9,6 +9,7 @@ interface Props {
   orgName: string
   activeRunsByRole: Record<string, number>
   isAdmin?: boolean
+  inboxUnread?: number
 }
 
 interface NavItem {
@@ -24,13 +25,13 @@ interface NavSection {
 }
 
 const SECTION_HEADER =
-  'px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider select-none'
+  'px-3 py-1.5 text-xs font-semibold text-gray-300 uppercase tracking-wider select-none'
 
 const NAV_ITEM_BASE =
-  'flex items-center justify-between rounded-md px-3 py-1.5 text-sm transition-colors'
-const NAV_ITEM_ACTIVE = 'text-accent font-medium bg-violet-50'
+  'flex items-center justify-between rounded-md px-3 py-1.5 text-sm transition-colors border-l-2'
+const NAV_ITEM_ACTIVE = 'text-accent font-medium bg-violet-50 border-accent'
 const NAV_ITEM_INACTIVE =
-  'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+  'text-gray-600 hover:text-gray-900 hover:bg-gray-50 border-transparent'
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
@@ -47,7 +48,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   )
 }
 
-export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = false }: Props) {
+export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = false, inboxUnread = 0 }: Props) {
   const pathname = usePathname()
   const [agentsOpen, setAgentsOpen] = useState(true)
 
@@ -72,7 +73,9 @@ export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = 
     {
       title: 'Settings',
       items: [
+        { label: 'Inbox', href: `/dashboard/${orgSlug}/inbox` },
         { label: 'Sources', href: `/dashboard/${orgSlug}/sources` },
+        { label: 'Memory', href: `/dashboard/${orgSlug}/memory` },
         { label: 'Skills', href: `/dashboard/${orgSlug}/skills` },
         { label: 'Chat', href: `/chat/${orgSlug}` },
         ...(isAdmin ? [{ label: 'Admin', href: '/admin' }] : []),
@@ -99,11 +102,11 @@ export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = 
 
   return (
     <aside
-      className="flex flex-col w-60 h-screen bg-white border-r border-gray-200 shrink-0 overflow-y-auto"
+      className="flex flex-col w-60 h-screen bg-white border-r border-gray-200 shrink-0 overflow-y-auto pb-6"
       aria-label="Main navigation"
     >
       {/* Org heading */}
-      <div className="px-4 pt-5 pb-3 border-b border-gray-100">
+      <div className="px-4 pt-5 pb-3">
         <p
           className="font-display font-semibold text-sm text-gray-900 truncate"
           title={orgName}
@@ -115,12 +118,15 @@ export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = 
           type="button"
           disabled
           aria-label="Search (coming soon)"
-          className="mt-2 w-full flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-default"
+          className="mt-2 w-full flex items-center gap-2 rounded-md border border-gray-200 px-2.5 py-1.5 text-xs text-gray-400 cursor-default hover:border-gray-300 transition-colors"
         >
           <kbd className="text-xs text-gray-300 font-mono">⌘K</kbd>
           <span>Search…</span>
         </button>
       </div>
+
+      {/* Subtle divider between org header and nav */}
+      <div className="mx-4 h-px bg-gray-100 mb-1" />
 
       {/* Nav sections */}
       <nav className="flex-1 px-2 py-3 space-y-4">
@@ -203,7 +209,15 @@ export default function Sidebar({ orgSlug, orgName, activeRunsByRole, isAdmin = 
                     }`}
                     aria-current={isActive(item.href) ? 'page' : undefined}
                   >
-                    {item.label}
+                    <span>{item.label}</span>
+                    {item.label === 'Inbox' && inboxUnread > 0 && (
+                      <span
+                        className="ml-auto text-xs bg-accent text-white rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-tight"
+                        aria-label={`${inboxUnread} unread messages`}
+                      >
+                        {inboxUnread > 99 ? '99+' : inboxUnread}
+                      </span>
+                    )}
                   </Link>
                 </li>
               ))}

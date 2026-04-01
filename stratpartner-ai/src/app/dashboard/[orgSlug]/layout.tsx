@@ -43,6 +43,23 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
     // Table doesn't exist yet — silently ignore
   }
 
+  // Fetch unread inbox count.
+  // Gracefully handles the case where read_at column doesn't exist yet.
+  let inboxUnread = 0
+  try {
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id', org?.id ?? '')
+      .eq('role', 'assistant')
+      .not('channel', 'is', null)
+      .in('channel', ['agent', 'recall', 'heartbeat'])
+      .is('read_at', null)
+    inboxUnread = count ?? 0
+  } catch {
+    // Table may not have read_at column yet — silently ignore
+  }
+
   // Admin check: server-side, using ADMIN_EMAIL env var
   const adminEmail = process.env.ADMIN_EMAIL
   const isAdmin = Boolean(adminEmail)
@@ -58,6 +75,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps)
         orgName={org?.name ?? params.orgSlug}
         activeRunsByRole={activeRunsByRole}
         isAdmin={isAdmin}
+        inboxUnread={inboxUnread}
       />
       <main className="flex-1 overflow-y-auto">
         {children}

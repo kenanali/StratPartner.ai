@@ -40,6 +40,7 @@ interface ChatUIProps {
   orgId: string
   orgName: string
   orgSlug: string
+  sessionId: string
   projectId?: string
 }
 
@@ -111,12 +112,71 @@ function toBase64(file: File): Promise<string> {
   })
 }
 
-export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIProps) {
+// ---------------------------------------------------------------------------
+// Markdown rendering
+// ---------------------------------------------------------------------------
+
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`|\[([^\]]+)\]\(([^)]+)\))/)
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**'))
+      return <strong key={i} className="font-semibold text-primary">{part.slice(2, -2)}</strong>
+    if (part.startsWith('*') && part.endsWith('*'))
+      return <em key={i} className="italic">{part.slice(1, -1)}</em>
+    if (part.startsWith('`') && part.endsWith('`'))
+      return <code key={i} className="font-mono text-xs bg-gray-100 text-primary px-1.5 py-0.5 rounded">{part.slice(1, -1)}</code>
+    return part
+  })
+}
+
+function SimpleMarkdown({ content }: { content: string }) {
+  const lines = content.split('\n')
+
+  return (
+    <div className="space-y-1.5 text-sm leading-relaxed text-gray-800">
+      {lines.map((line, i) => {
+        if (line.startsWith('### '))
+          return <h3 key={i} className="font-display font-semibold text-sm text-primary mt-2 mb-0.5 uppercase tracking-wide">{line.slice(4)}</h3>
+        if (line.startsWith('## '))
+          return <h2 key={i} className="font-display font-semibold text-base text-primary mt-3 mb-1">{line.slice(3)}</h2>
+        if (line.startsWith('# '))
+          return <h1 key={i} className="font-display font-bold text-lg text-primary mt-3 mb-1">{line.slice(2)}</h1>
+        if (line.startsWith('- ') || line.startsWith('* '))
+          return (
+            <div key={i} className="flex gap-2 ml-2">
+              <span className="text-accent mt-1 shrink-0 text-xs">•</span>
+              <span>{renderInline(line.slice(2))}</span>
+            </div>
+          )
+        const numMatch = line.match(/^(\d+)\. (.+)/)
+        if (numMatch)
+          return (
+            <div key={i} className="flex gap-2 ml-2">
+              <span className="text-accent shrink-0 font-mono text-xs font-medium w-4">{numMatch[1]}.</span>
+              <span>{renderInline(numMatch[2])}</span>
+            </div>
+          )
+        if (line === '---' || line === '***')
+          return <hr key={i} className="border-gray-200 my-2" />
+        if (line.startsWith('```'))
+          return null
+        if (!line.trim())
+          return <div key={i} className="h-1" />
+        return <p key={i}>{renderInline(line)}</p>
+      })}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+export default function ChatUI({ orgId, orgName, orgSlug, sessionId, projectId }: ChatUIProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [skills, setSkills] = useState<Skill[]>([])
-  const [sessionId, setSessionId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
@@ -131,24 +191,23 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
   const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    const storageKey = `sp_session_${orgSlug}${projectId ? `_${projectId}` : ''}`
-    let sid = localStorage.getItem(storageKey)
-    if (!sid) { sid = crypto.randomUUID(); localStorage.setItem(storageKey, sid) }
-    setSessionId(sid)
+    setMessages([])
+    setIsLoading(true)
+    setError(null)
 
-    async function load(sid: string) {
+    async function load() {
       try {
         const [msgRes, skillRes] = await Promise.all([
-          fetch(`/api/messages?orgId=${orgId}&sessionId=${sid}&limit=20`),
+          fetch(`/api/messages?orgId=${orgId}&sessionId=${sessionId}&limit=20`),
           fetch(`/api/org-skills?orgId=${orgId}`),
         ])
-        if (msgRes.ok) { const d = await msgRes.json(); setMessages(d.messages ?? []) }
-        if (skillRes.ok) { const d = await skillRes.json(); setSkills(d.skills ?? []) }
+        if (msgRes.ok) { const d = await msgRes.json() as { messages: Message[] }; setMessages(d.messages ?? []) }
+        if (skillRes.ok) { const d = await skillRes.json() as { skills: Skill[] }; setSkills(d.skills ?? []) }
       } catch { setError('Failed to load') }
       finally { setIsLoading(false) }
     }
-    load(sid)
-  }, [orgId, orgSlug, projectId])
+    load()
+  }, [orgId, sessionId])
 
   useEffect(() => {
     if (!userScrolledUp.current) messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -174,7 +233,6 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
   const addFiles = useCallback(async (files: File[]) => {
     for (const file of files) {
       const id = crypto.randomUUID()
-      // Add as processing
       setPendingAttachments(prev => [...prev, {
         id, fileName: file.name, type: 'text', status: 'processing',
       }])
@@ -183,7 +241,6 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
         const processed = await processFile(file)
 
         if (processed.type === 'rag') {
-          // Send to server for RAG ingestion
           const formData = new FormData()
           formData.append('file', file)
           formData.append('orgId', orgId)
@@ -241,11 +298,10 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
       e.preventDefault()
       addFiles(files)
     }
-    // Text paste falls through naturally
   }, [addFiles])
 
   async function handleSend() {
-    if ((!input.trim() && pendingAttachments.filter(a => a.status === 'ready').length === 0) || isStreaming || !sessionId) return
+    if ((!input.trim() && pendingAttachments.filter(a => a.status === 'ready').length === 0) || isStreaming) return
 
     const userMessage = input.trim()
     const readyAttachments = pendingAttachments.filter(a => a.status === 'ready')
@@ -327,7 +383,6 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
       }
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // User stopped — keep whatever was streamed
         return
       }
       const msg = err instanceof Error ? err.message : 'Something went wrong'
@@ -372,102 +427,159 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
     >
       {/* Drag overlay */}
       {isDragging && (
-        <div className="absolute inset-0 z-50 bg-indigo-50/90 border-2 border-dashed border-indigo-400 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 z-50 bg-accent/5 border-2 border-dashed border-accent/40 flex items-center justify-center pointer-events-none">
           <div className="text-center">
-            <p className="text-lg font-semibold text-indigo-700">Drop files here</p>
-            <p className="text-sm text-indigo-500 mt-1">Images, PDFs, DOCX, text, code, CSV…</p>
+            <p className="font-display font-semibold text-base text-primary">Drop files here</p>
+            <p className="text-sm text-gray-400 mt-1">Images, PDFs, DOCX, text, code, CSV…</p>
           </div>
         </div>
       )}
 
       {/* Header */}
-      <header className="shrink-0 border-b border-gray-200 bg-white px-4 py-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-base font-semibold text-gray-900">{orgName}</h1>
-          <p className="text-xs text-gray-400">StratPartner.ai</p>
+      <header className="shrink-0 border-b border-gray-100 bg-white px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+            <span className="text-white text-xs font-display font-bold">SP</span>
+          </div>
+          <div>
+            <p className="font-display font-semibold text-sm text-primary">{orgName}</p>
+            <p className="text-xs text-gray-400">StratPartner.ai</p>
+          </div>
         </div>
-        <a href={`/dashboard/${orgSlug}`} className="text-xs text-indigo-600 hover:underline">Dashboard</a>
+        <div className="flex items-center gap-3">
+          <a
+            href={`/dashboard/${orgSlug}`}
+            className="text-xs text-gray-400 hover:text-primary transition-colors border border-gray-200 rounded-lg px-3 py-1.5 hover:border-gray-300"
+          >
+            Dashboard ↗
+          </a>
+        </div>
       </header>
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 py-8 space-y-6">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
-            <span className="text-sm text-gray-400">Loading…</span>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+              <span className="font-sans text-xs">Loading…</span>
+            </div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3">
-            <p className="text-gray-700 text-lg font-medium">StratPartner is ready.</p>
-            <p className="text-gray-400 text-sm max-w-sm">Ask a question, run a framework, or drop in any file — images, PDFs, docs, spreadsheets, code.</p>
-            <p className="text-gray-300 text-xs">Try /journey-map, /trend-scan, or just start talking.</p>
+          /* Empty state */
+          <div className="flex flex-col items-center justify-center h-full gap-6 px-6 text-center">
+            <div className="h-16 w-16 rounded-2xl bg-primary/5 border border-gray-100 flex items-center justify-center">
+              <span className="font-display font-bold text-2xl text-primary/30">SP</span>
+            </div>
+            <div>
+              <h2 className="font-display font-bold text-xl text-primary mb-2">Ready to work.</h2>
+              <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
+                Ask a question, run a strategy framework, or drop in any document — research briefs, transcripts, competitor decks.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {['journey-map', 'persona-build', 'trend-scan', 'competitive-landscape'].map(slug => (
+                <button
+                  key={slug}
+                  onClick={() => handleSkillClick(slug)}
+                  className="flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs text-gray-500 hover:border-accent hover:text-accent transition-all"
+                >
+                  <span className="text-accent/50">⚡</span> /{slug}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
-          messages.map((msg, i) => (
-            <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.role === 'system' ? (
-                <div className="w-full flex justify-center">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1.5 text-xs text-indigo-600">
+          messages.map((msg, i) => {
+            if (msg.role === 'system') {
+              return (
+                <div key={i} className="w-full flex justify-center">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs text-gray-500">
                     {msg.content}
                   </span>
                 </div>
-              ) : (
-                <div className={`max-w-[85%] sm:max-w-[70%] space-y-2 ${msg.role === 'user' ? 'items-end flex flex-col' : ''}`}>
-                  {/* Attachment previews */}
-                  {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      {msg.attachments.map((att) => (
-                        <div key={att.id} className="relative">
-                          {att.type === 'image' && att.preview ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={att.preview} alt={att.fileName} className="h-32 w-32 object-cover rounded-xl border border-gray-200" />
-                          ) : (
-                            <div className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium ${att.type === 'rag' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-gray-100 text-gray-700'}`}>
-                              <span>{fileIcon(att.type)}</span>
-                              <span className="max-w-[120px] truncate">{att.fileName}</span>
-                              {att.chunkCount && <span className="text-gray-400">·{att.chunkCount} chunks</span>}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div
-                    className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                      msg.role === 'user'
-                        ? 'bg-indigo-600 text-white rounded-br-sm whitespace-pre-wrap'
-                        : 'bg-gray-100 text-gray-900 rounded-bl-sm'
-                    }`}
-                    style={msg.role === 'assistant' ? { whiteSpace: 'pre-wrap' } : {}}
-                  >
-                    {msg.content || (
-                      <span className="inline-flex gap-0.5 items-center h-4">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-                      </span>
+              )
+            }
+
+            const isMeetingBriefing = msg.role === 'assistant' && msg.content.startsWith('## I was in your meeting')
+
+            if (msg.role === 'user') {
+              return (
+                <div key={i} className="flex justify-end">
+                  <div className="max-w-[75%] sm:max-w-[60%] space-y-2 items-end flex flex-col">
+                    {/* Attachment previews */}
+                    {msg.attachments && msg.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        {msg.attachments.map((att) => (
+                          <div key={att.id} className="relative">
+                            {att.type === 'image' && att.preview ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={att.preview} alt={att.fileName} className="h-32 w-32 object-cover rounded-xl border border-gray-200" />
+                            ) : (
+                              <div className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium ${att.type === 'rag' ? 'bg-success/10 text-success border border-success/20' : 'bg-gray-100 text-gray-700'}`}>
+                                <span>{fileIcon(att.type)}</span>
+                                <span className="max-w-[120px] truncate">{att.fileName}</span>
+                                {att.chunkCount && <span className="text-gray-400">· {att.chunkCount} chunks</span>}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
+                    <div className="rounded-2xl rounded-br-md px-4 py-3 text-sm leading-relaxed bg-primary text-white">
+                      {msg.content}
+                    </div>
                   </div>
-                  {msg.deliverable && (
-                    <ArtifactCard deliverable={msg.deliverable} orgSlug={orgSlug} />
-                  )}
                 </div>
-              )}
-            </div>
-          ))
+              )
+            }
+
+            // Assistant message
+            return (
+              <div key={i} className="flex justify-start">
+                <div className="max-w-[85%] sm:max-w-[72%]">
+                  <div className="flex items-start gap-3">
+                    <div className="shrink-0 h-7 w-7 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mt-0.5">
+                      <span className="text-accent text-xs font-display font-bold">SP</span>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {isMeetingBriefing && (
+                        <div className="flex items-center gap-2 mb-3 text-xs text-accent">
+                          <span>🎙</span>
+                          <span className="font-display font-medium">Meeting briefing</span>
+                        </div>
+                      )}
+                      {msg.content ? (
+                        <SimpleMarkdown content={msg.content} />
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
+                          <span className="font-sans text-xs text-gray-400">thinking…</span>
+                        </div>
+                      )}
+                      {msg.deliverable && (
+                        <ArtifactCard deliverable={msg.deliverable} orgSlug={orgSlug} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })
         )}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="shrink-0 mx-4 mb-2 rounded-lg bg-red-50 border border-red-100 px-4 py-2 text-sm text-red-600 flex items-center justify-between">
+        <div className="shrink-0 mx-4 mb-2 rounded-lg bg-danger/5 border border-danger/20 px-4 py-2 text-sm text-danger flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="ml-2 text-red-400 hover:text-red-600 text-xs">✕</button>
+          <button onClick={() => setError(null)} className="ml-2 text-danger/50 hover:text-danger text-xs">✕</button>
         </div>
       )}
 
       {/* Input area */}
-      <div className="shrink-0 border-t border-gray-200 bg-white px-4 pt-3 pb-4">
+      <div className="shrink-0 border-t border-gray-100 bg-white px-4 pt-3 pb-4">
         {/* Skill chips */}
         {skillsToShow.length > 0 && (
           <div className="flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
@@ -476,8 +588,9 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
                 key={skill.slug}
                 onClick={() => handleSkillClick(skill.slug)}
                 disabled={isStreaming}
-                className="shrink-0 rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors disabled:opacity-40"
+                className="shrink-0 group flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:border-accent hover:text-accent hover:bg-accent/5 transition-all disabled:opacity-40"
               >
+                <span className="text-accent/50 group-hover:text-accent transition-colors">⚡</span>
                 /{skill.slug}
               </button>
             ))}
@@ -487,18 +600,18 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
 
         {/* Pending attachments */}
         {pendingAttachments.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             {pendingAttachments.map((att) => (
               <div
                 key={att.id}
                 className={`relative flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium ${
                   att.status === 'error'
-                    ? 'bg-red-50 border-red-200 text-red-700'
+                    ? 'bg-danger/5 border-danger/20 text-danger'
                     : att.status === 'processing'
                     ? 'bg-gray-50 border-gray-200 text-gray-400'
                     : att.type === 'rag'
-                    ? 'bg-green-50 border-green-200 text-green-700'
-                    : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                    ? 'bg-success/5 border-success/20 text-success'
+                    : 'bg-accent/5 border-accent/20 text-accent'
                 }`}
               >
                 {att.type === 'image' && att.preview ? (
@@ -511,7 +624,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
                   {att.status === 'processing' ? `Processing ${att.fileName}…` : att.status === 'error' ? (att.error ?? 'Error') : att.fileName}
                 </span>
                 {att.type === 'rag' && att.chunkCount && (
-                  <span className="text-green-500">·{att.chunkCount} chunks</span>
+                  <span className="text-success/70">· {att.chunkCount} chunks</span>
                 )}
                 {att.status !== 'processing' && (
                   <button onClick={() => removeAttachment(att.id)} className="ml-1 opacity-50 hover:opacity-100">✕</button>
@@ -521,8 +634,8 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
           </div>
         )}
 
-        {/* Input row */}
-        <div className="flex gap-2 items-end">
+        {/* Input row — clean card style */}
+        <div className="flex gap-2 items-end rounded-2xl border border-gray-200 bg-white px-3 py-2 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/20 transition-all shadow-sm">
           <input
             ref={fileInputRef}
             type="file"
@@ -535,11 +648,13 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
               e.target.value = ''
             }}
           />
+
+          {/* Attach button */}
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isStreaming}
             title="Attach files (or drag & drop / paste)"
-            className="shrink-0 rounded-xl border border-gray-300 p-2.5 text-gray-400 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-40 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="shrink-0 p-1.5 text-gray-300 hover:text-accent rounded-lg transition-colors disabled:opacity-40"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -555,25 +670,32 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
             disabled={isStreaming}
             placeholder="Ask anything, or drop / paste files…"
             rows={1}
-            className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 min-h-[44px]"
+            className="flex-1 resize-none border-0 outline-none text-sm text-primary placeholder-gray-400 bg-transparent min-h-[28px] max-h-[128px] disabled:opacity-50"
           />
+
           {isStreaming ? (
             <button
               onClick={() => abortControllerRef.current?.abort()}
-              className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors min-h-[44px]"
+              className="shrink-0 h-8 w-8 rounded-xl bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
             >
-              Stop
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
             </button>
           ) : (
             <button
               onClick={handleSend}
               disabled={!canSend}
-              className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+              className="shrink-0 h-8 w-8 rounded-xl bg-primary flex items-center justify-center text-white hover:bg-gray-800 disabled:opacity-30 transition-all"
             >
-              Send
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
             </button>
           )}
         </div>
+
+        <p className="text-center text-xs text-gray-300 mt-2">⏎ to send · ⇧⏎ newline · drag or paste files</p>
       </div>
     </div>
   )
@@ -615,12 +737,12 @@ function ArtifactCard({ deliverable, orgSlug }: { deliverable: Deliverable; orgS
   code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
   pre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; }
   pre code { background: none; padding: 0; }
-  blockquote { border-left: 4px solid #6366f1; margin: 0; padding-left: 16px; color: #6b7280; }
+  blockquote { border-left: 4px solid #8B5CF6; margin: 0; padding-left: 16px; color: #6b7280; }
   table { border-collapse: collapse; width: 100%; }
   th,td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; }
   th { background: #f9fafb; font-weight: 600; }
   .meta { color: #6b7280; font-size: 0.85em; margin-bottom: 2em; }
-  .badge { display: inline-block; background: #eef2ff; color: #4f46e5; padding: 2px 10px; border-radius: 999px; font-size: 0.8em; font-weight: 600; }
+  .badge { display: inline-block; background: #f5f3ff; color: #8B5CF6; padding: 2px 10px; border-radius: 999px; font-size: 0.8em; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -643,31 +765,38 @@ document.getElementById('content').innerHTML = marked.parse(${JSON.stringify(del
   }
 
   return (
-    <div className="mt-2 rounded-xl border border-indigo-200 bg-white overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 bg-indigo-50 border-b border-indigo-100">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-base">📋</span>
+    <div className="mt-3 rounded-xl border border-accent/20 bg-white overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 bg-accent/5 border-b border-accent/10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="shrink-0 h-6 w-6 rounded-md bg-primary flex items-center justify-center">
+            <span className="text-white text-xs font-display font-bold leading-none">SP</span>
+          </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-gray-900 truncate">{deliverable.title}</p>
-            <p className="text-xs text-indigo-500">{deliverable.type} · saved to outputs</p>
+            <p className="text-sm font-display font-semibold text-primary truncate">{deliverable.title}</p>
+            <p className="text-xs text-accent/70">
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-block bg-accent text-white text-xs font-medium px-1.5 py-px rounded-full leading-none">{deliverable.type}</span>
+                <span className="text-gray-400">· saved to outputs</span>
+              </span>
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0 ml-3">
           <button
             onClick={downloadMd}
-            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-accent hover:text-accent transition-colors"
           >
             .md
           </button>
           <button
             onClick={downloadHtml}
-            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-accent hover:text-accent transition-colors"
           >
             .html
           </button>
           <a
             href={`/dashboard/${orgSlug}/sources`}
-            className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+            className="rounded-lg border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10 transition-colors"
           >
             View outputs
           </a>

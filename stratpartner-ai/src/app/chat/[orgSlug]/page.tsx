@@ -1,11 +1,12 @@
 import { getSupabaseAdmin } from '@/lib/supabase'
-import ChatUI from './ChatUI'
+import SessionsHub from './SessionsHub'
 
 interface PageProps {
   params: { orgSlug: string }
+  searchParams: { session?: string }
 }
 
-export default async function ChatPage({ params }: PageProps) {
+export default async function ChatPage({ params, searchParams }: PageProps) {
   const { orgSlug } = params
   const supabase = getSupabaseAdmin()
 
@@ -28,5 +29,12 @@ export default async function ChatPage({ params }: PageProps) {
     )
   }
 
-  return <ChatUI orgId={org.id} orgName={org.name} orgSlug={org.slug} />
+  return (
+    <SessionsHub
+      orgId={org.id}
+      orgName={org.name}
+      orgSlug={org.slug}
+      initialSessionId={searchParams.session}
+    />
+  )
 }

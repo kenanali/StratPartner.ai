@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed:gtm-skills": "npx tsx scripts/seed-gtm-skills.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",

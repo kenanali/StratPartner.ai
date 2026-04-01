@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /Users/kenanali/claude/StratPartner.Ai-Project/StratPartner.ai/stratpartner-ai/src/app/dashboard/[orgSlug]/)",
+      "Bash(mkdir -p /Users/kenanali/claude/StratPartner.Ai-Project/StratPartner.ai/stratpartner-ai/src/app/api/meetings/\\\\[id\\\\])",
+      "Bash(mkdir -p \"/Users/kenanali/claude/StratPartner.Ai-Project/StratPartner.ai/stratpartner-ai/src/app/dashboard/[orgSlug]/meetings/[meetingId]\")",
+      "Read(//Users/kenanali/.claude/projects/-Users-kenanali-claude-StratPartner-Ai-Project-StratPartner-ai/6222f49b-0cb2-4386-a1d3-2b00767323f7/subagents/**)",
+      "Bash(ls stratpartner-ai/src/app/chat/*/ChatUI.tsx stratpartner-ai/src/lib/agents/roles.ts stratpartner-ai/src/lib/agents/worker.ts stratpartner-ai/scripts/seed-gtm-skills.ts)",
+      "Bash(ls stratpartner-ai/src/app/dashboard/*/meetings/)",
+      "Bash(npx tsc:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/kenanali/claude/StratPartner.Ai-Project/StratPartner.ai/stratpartner-ai/src/app/dashboard/[orgSlug]"
+    ]
+  }
+}
