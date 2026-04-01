@@ -22,7 +22,7 @@ export default async function InboxPage({ params }: PageProps) {
 
   const { data } = await supabase
     .from('messages')
-    .select('id, content, channel, created_at, read_at, session_id')
+    .select('id, content, channel, created_at, read_at, session_id, suggested_skills')
     .eq('org_id', org.id)
     .eq('role', 'assistant')
     .not('channel', 'is', null)
