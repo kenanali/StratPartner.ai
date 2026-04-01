@@ -27,20 +27,20 @@ export async function POST(req: NextRequest) {
   }
 
   // Validate file type
-  const allowedTypes = [
-    'application/pdf',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/msword',
-  ]
+  const ALLOWED_EXTS = ['.pdf', '.docx', '.doc', '.txt', '.md', '.markdown', '.csv', '.json', '.xml', '.yaml', '.yml', '.ts', '.tsx', '.js', '.jsx', '.py', '.rb', '.go', '.rs', '.java', '.c', '.cpp', '.h', '.css', '.sql', '.html', '.htm']
+  const nameLower = file.name.toLowerCase()
   const isAllowed =
-    allowedTypes.includes(file.type) ||
-    file.name.endsWith('.pdf') ||
-    file.name.endsWith('.docx') ||
-    file.name.endsWith('.doc')
+    file.type.startsWith('text/') ||
+    file.type === 'application/pdf' ||
+    file.type === 'application/json' ||
+    file.type === 'application/xml' ||
+    file.type.includes('wordprocessingml') ||
+    file.type === 'application/msword' ||
+    ALLOWED_EXTS.some(ext => nameLower.endsWith(ext))
 
   if (!isAllowed) {
     return NextResponse.json(
-      { error: 'Unsupported file type. Upload PDF or DOCX only.' },
+      { error: 'Unsupported file type. Upload PDF, DOCX, MD, TXT, CSV, JSON, or code files.' },
       { status: 400 }
     )
   }
