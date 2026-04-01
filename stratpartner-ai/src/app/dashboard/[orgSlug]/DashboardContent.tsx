@@ -194,7 +194,7 @@ export default function DashboardContent({
         orgSlug={orgSlug}
         isOpen={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        required={isFirstRun && statCards[0]?.value === 0}
+        required={false}
       />
     </div>
   )

@@ -7,7 +7,9 @@
       "Read(//Users/kenanali/.claude/projects/-Users-kenanali-claude-StratPartner-Ai-Project-StratPartner-ai/6222f49b-0cb2-4386-a1d3-2b00767323f7/subagents/**)",
       "Bash(ls stratpartner-ai/src/app/chat/*/ChatUI.tsx stratpartner-ai/src/lib/agents/roles.ts stratpartner-ai/src/lib/agents/worker.ts stratpartner-ai/scripts/seed-gtm-skills.ts)",
       "Bash(ls stratpartner-ai/src/app/dashboard/*/meetings/)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(curl -s https://djicaxakodwwxrlnhkkf.supabase.co/rest/v1/rpc/version -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqaWNheGFrb2R3d3hybG5oa2tmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk5MzM0MSwiZXhwIjoyMDkwNTY5MzQxfQ.G61lmwfPsENpjDmX3-GfFNCEylIcY2r9-7HeetD9e7o')",
+      "Bash(curl -s 'https://djicaxakodwwxrlnhkkf.supabase.co/rest/v1/orgs?select=id,name,slug&limit=5' -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqaWNheGFrb2R3d3hybG5oa2tmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk5MzM0MSwiZXhwIjoyMDkwNTY5MzQxfQ.G61lmwfPsENpjDmX3-GfFNCEylIcY2r9-7HeetD9e7o' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRqaWNheGFrb2R3d3hybG5oa2tmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDk5MzM0MSwiZXhwIjoyMDkwNTY5MzQxfQ.G61lmwfPsENpjDmX3-GfFNCEylIcY2r9-7HeetD9e7o')"
     ],
     "additionalDirectories": [
       "/Users/kenanali/claude/StratPartner.Ai-Project/StratPartner.ai/stratpartner-ai/src/app/dashboard/[orgSlug]"
