@@ -42,6 +42,13 @@ export default async function SourcesPage({ params }: PageProps) {
     chunkCount: chunkMap[f.id] ?? 0,
   }))
 
+  const { data: deliverables } = await supabase
+    .from('deliverables')
+    .select('id, title, type, content, created_at')
+    .eq('org_id', org.id)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
   return (
     <main className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white px-6 py-4">
@@ -63,7 +70,18 @@ export default async function SourcesPage({ params }: PageProps) {
       </header>
 
       <div className="mx-auto max-w-5xl px-6 py-8">
-        <SourcesClient orgId={org.id} orgSlug={org.slug} initialSources={sources} />
+        <SourcesClient
+          orgId={org.id}
+          orgSlug={org.slug}
+          initialSources={sources}
+          initialDeliverables={(deliverables ?? []).map(d => ({
+            id: d.id,
+            title: d.title,
+            type: d.type,
+            content: d.content,
+            createdAt: d.created_at,
+          }))}
+        />
       </div>
     </main>
   )

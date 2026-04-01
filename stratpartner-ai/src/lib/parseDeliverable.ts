@@ -43,8 +43,6 @@ export async function saveDeliverable(params: {
   const { getSupabaseAdmin } = await import('./supabase')
   const supabase = getSupabaseAdmin()
 
-  if (!params.projectId) return null
-
   const { data, error } = await supabase
     .from('deliverables')
     .insert({

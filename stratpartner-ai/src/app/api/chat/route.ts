@@ -226,16 +226,23 @@ export async function POST(req: NextRequest) {
           project_id: project_id ?? null,
         })
 
-        // Auto-save deliverable if marker was found and we're in a project
-        if (meta && project_id && detectedSkill) {
-          await saveDeliverable({
+        // Auto-save deliverable if marker was found (project or not)
+        if (meta && detectedSkill) {
+          const deliverableId = await saveDeliverable({
             orgId: org_id,
-            projectId: project_id,
+            projectId: project_id ?? null,
             title: meta.title,
             type: detectedSkill.slug,
             content: mainContent,
             sessionId: session_id,
           })
+          if (deliverableId) {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ deliverable: { id: deliverableId, title: meta.title, type: detectedSkill.slug, content: mainContent } })}\n\n`
+              )
+            )
+          }
         }
 
         // Update memory asynchronously (non-blocking)

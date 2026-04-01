@@ -10,10 +10,19 @@ interface Source {
   chunkCount: number
 }
 
+interface Deliverable {
+  id: string
+  title: string
+  type: string
+  content: string
+  createdAt: string
+}
+
 interface Props {
   orgId: string
   orgSlug: string
   initialSources: Source[]
+  initialDeliverables: Deliverable[]
 }
 
 interface UploadingFile {
@@ -41,8 +50,20 @@ function mimeLabel(mime: string, name: string): string {
   return mime.split('/').pop()?.toUpperCase() ?? 'FILE'
 }
 
-export default function SourcesClient({ orgId, orgSlug, initialSources }: Props) {
+function downloadMd(d: Deliverable) {
+  const blob = new Blob([d.content], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${d.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export default function SourcesClient({ orgId, orgSlug, initialSources, initialDeliverables }: Props) {
   const [sources, setSources] = useState<Source[]>(initialSources)
+  const [deliverables] = useState<Deliverable[]>(initialDeliverables)
+  const [activeTab, setActiveTab] = useState<'sources' | 'outputs'>('sources')
   const [uploading, setUploading] = useState<UploadingFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -112,7 +133,58 @@ export default function SourcesClient({ orgId, orgSlug, initialSources }: Props)
   const isEmpty = sources.length === 0 && uploading.length === 0
 
   return (
-    <div className="grid gap-8 lg:grid-cols-5">
+    <div>
+      {/* Tab bar */}
+      <div className="flex gap-1 mb-6 border-b border-gray-200">
+        {(['sources', 'outputs'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px capitalize transition-colors ${
+              activeTab === tab
+                ? 'border-indigo-600 text-indigo-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {tab === 'sources' ? `Sources (${sources.length})` : `Outputs (${deliverables.length})`}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'outputs' && (
+        <div>
+          {deliverables.length === 0 ? (
+            <div className="rounded-2xl border-2 border-dashed border-gray-100 p-12 text-center">
+              <p className="text-sm text-gray-400">No outputs yet.</p>
+              <p className="mt-1 text-xs text-gray-300">Use skills in chat to generate strategy deliverables.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {deliverables.map(d => (
+                <div key={d.id} className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 hover:border-gray-300 transition-all">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 text-xs font-bold uppercase">
+                      {d.type.slice(0, 3)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{d.title}</p>
+                      <p className="text-xs text-gray-400">{d.type} · {new Date(d.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => downloadMd(d)}
+                    className="ml-4 shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    Download MD
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'sources' && <div className="grid gap-8 lg:grid-cols-5">
       {/* Upload panel */}
       <div className="lg:col-span-2">
         <div
@@ -227,6 +299,7 @@ export default function SourcesClient({ orgId, orgSlug, initialSources }: Props)
           </div>
         )}
       </div>
+    </div>}
     </div>
   )
 }

@@ -2,10 +2,18 @@
 
 import { useEffect, useRef, useState, useCallback, DragEvent, ClipboardEvent } from 'react'
 
+interface Deliverable {
+  id: string
+  title: string
+  type: string
+  content: string
+}
+
 interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   attachments?: PendingAttachment[]
+  deliverable?: Deliverable
 }
 
 interface Skill {
@@ -120,6 +128,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
   const userScrolledUp = useRef(false)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const dragCounter = useRef(0)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const storageKey = `sp_session_${orgSlug}${projectId ? `_${projectId}` : ''}`
@@ -252,6 +261,9 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
     ])
     setIsStreaming(true)
 
+    const abort = new AbortController()
+    abortControllerRef.current = abort
+
     try {
       const apiAttachments = readyAttachments
         .filter(a => a.type !== 'rag')
@@ -267,6 +279,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
           project_id: projectId ?? null,
           attachments: apiAttachments,
         }),
+        signal: abort.signal,
       })
 
       if (!res.ok) {
@@ -279,7 +292,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
       const decoder = new TextDecoder()
       let buffer = ''
 
-      while (true) {
+      outer: while (true) {
         const { done, value } = await reader.read()
         if (done) break
         buffer += decoder.decode(value, { stream: true })
@@ -288,7 +301,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue
           const payload = line.slice(6)
-          if (payload === '[DONE]') break
+          if (payload === '[DONE]') break outer
           try {
             const parsed = JSON.parse(payload)
             if (parsed.error) throw new Error(parsed.error)
@@ -300,12 +313,23 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
                 return updated
               })
             }
+            if (parsed.deliverable) {
+              setMessages(prev => {
+                const updated = [...prev]
+                updated[updated.length - 1] = { ...updated[updated.length - 1], deliverable: parsed.deliverable }
+                return updated
+              })
+            }
           } catch (parseErr) {
             if (parseErr instanceof Error && parseErr.message !== 'Unexpected end of JSON input') throw parseErr
           }
         }
       }
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        // User stopped — keep whatever was streamed
+        return
+      }
       const msg = err instanceof Error ? err.message : 'Something went wrong'
       setError(msg)
       setMessages(prev => {
@@ -314,6 +338,7 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
         return prev
       })
     } finally {
+      abortControllerRef.current = null
       setIsStreaming(false)
     }
   }
@@ -422,6 +447,9 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
                       </span>
                     )}
                   </div>
+                  {msg.deliverable && (
+                    <ArtifactCard deliverable={msg.deliverable} orgSlug={orgSlug} />
+                  )}
                 </div>
               )}
             </div>
@@ -529,13 +557,22 @@ export default function ChatUI({ orgId, orgName, orgSlug, projectId }: ChatUIPro
             rows={1}
             className="flex-1 resize-none overflow-hidden rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50 min-h-[44px]"
           />
-          <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
-          >
-            {isStreaming ? '…' : 'Send'}
-          </button>
+          {isStreaming ? (
+            <button
+              onClick={() => abortControllerRef.current?.abort()}
+              className="shrink-0 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors min-h-[44px]"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[44px]"
+            >
+              Send
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -550,4 +587,92 @@ function fileIcon(type: PendingAttachment['type']): string {
     case 'text': return '📝'
     default: return '📎'
   }
+}
+
+function ArtifactCard({ deliverable, orgSlug }: { deliverable: Deliverable; orgSlug: string }) {
+  function downloadMd() {
+    const blob = new Blob([deliverable.content], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${deliverable.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function downloadHtml() {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${deliverable.title}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 860px; margin: 60px auto; padding: 0 24px; color: #1a1a1a; line-height: 1.7; }
+  h1,h2,h3,h4 { font-weight: 700; margin-top: 2em; }
+  h1 { font-size: 2em; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.5em; }
+  h2 { font-size: 1.4em; }
+  code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+  pre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; }
+  pre code { background: none; padding: 0; }
+  blockquote { border-left: 4px solid #6366f1; margin: 0; padding-left: 16px; color: #6b7280; }
+  table { border-collapse: collapse; width: 100%; }
+  th,td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; }
+  th { background: #f9fafb; font-weight: 600; }
+  .meta { color: #6b7280; font-size: 0.85em; margin-bottom: 2em; }
+  .badge { display: inline-block; background: #eef2ff; color: #4f46e5; padding: 2px 10px; border-radius: 999px; font-size: 0.8em; font-weight: 600; }
+</style>
+</head>
+<body>
+<p class="meta"><span class="badge">${deliverable.type}</span> &nbsp; Generated by StratPartner.ai</p>
+<h1>${deliverable.title}</h1>
+<div id="content"></div>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+document.getElementById('content').innerHTML = marked.parse(${JSON.stringify(deliverable.content)});
+</script>
+</body>
+</html>`
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${deliverable.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.html`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-indigo-200 bg-white overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 bg-indigo-50 border-b border-indigo-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-base">📋</span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">{deliverable.title}</p>
+            <p className="text-xs text-indigo-500">{deliverable.type} · saved to outputs</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 ml-3">
+          <button
+            onClick={downloadMd}
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          >
+            .md
+          </button>
+          <button
+            onClick={downloadHtml}
+            className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+          >
+            .html
+          </button>
+          <a
+            href={`/dashboard/${orgSlug}/sources`}
+            className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            View outputs
+          </a>
+        </div>
+      </div>
+    </div>
+  )
 }
