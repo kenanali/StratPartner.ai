@@ -34,21 +34,27 @@ const PLATFORM_LABELS: Record<string, string> = {
 }
 
 const STATUS_BADGE: Record<string, string> = {
-  pending: 'bg-gray-100 text-gray-600',
-  joining: 'bg-blue-100 text-blue-700',
+  pending:     'bg-gray-100 text-gray-500',
+  joining:     'bg-blue-100 text-blue-700',
   in_progress: 'bg-green-100 text-green-700',
-  processing: 'bg-amber-100 text-amber-700',
-  complete: 'bg-violet-100 text-violet-700',
-  failed: 'bg-red-100 text-red-700',
+  processing:  'bg-amber-100 text-amber-700',
+  complete:    'bg-violet-100 text-violet-700',
+  failed:      'bg-red-100 text-red-600',
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'Pending',
-  joining: 'Joining',
+  pending:     'Scheduled',
+  joining:     'Joining…',
   in_progress: 'Live',
-  processing: 'Processing',
-  complete: 'Complete',
-  failed: 'Failed',
+  processing:  'Transcribing…',
+  complete:    'Complete',
+  failed:      'Failed',
+}
+
+const STATUS_DOT: Record<string, string> = {
+  joining:     'bg-blue-500',
+  in_progress: 'bg-green-500',
+  processing:  'bg-amber-400',
 }
 
 function formatDuration(startedAt: string | null, endedAt: string | null): string {
@@ -220,8 +226,13 @@ export default function MeetingsClient({ orgId, orgSlug, initialMeetings, projec
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[m.status] ?? STATUS_BADGE.pending}`}>
-                      {m.status === 'in_progress' && (
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                      {STATUS_DOT[m.status] && (
+                        <span className={`inline-block h-1.5 w-1.5 rounded-full animate-pulse ${STATUS_DOT[m.status]}`} />
+                      )}
+                      {m.status === 'complete' && (
+                        <svg className="h-3 w-3 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
                       )}
                       {STATUS_LABEL[m.status] ?? m.status}
                     </span>

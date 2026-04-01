@@ -31,6 +31,7 @@ interface MeetingFindings {
 
 interface Meeting {
   id: string
+  org_id: string
   title: string | null
   platform: string | null
   status: string
@@ -53,6 +54,29 @@ const PLATFORM_LABELS: Record<string, string> = {
   meet: 'Google Meet',
   teams: 'Teams',
   unknown: 'Meeting',
+}
+
+// Pipeline steps in order
+const STEPS = [
+  { key: 'pending',    label: 'Bot created',        sub: 'Waiting to join' },
+  { key: 'joining',   label: 'Joining',             sub: 'Connecting to meeting' },
+  { key: 'in_progress', label: 'Recording',         sub: 'Capturing transcript' },
+  { key: 'processing', label: 'Transcribing',       sub: 'Processing audio' },
+  { key: 'briefing',  label: 'Generating briefing', sub: 'Analyzing with AI' },
+  { key: 'complete',  label: 'Complete',            sub: 'Briefing ready' },
+]
+
+// Map DB status → step index
+function statusToStep(status: string): number {
+  switch (status) {
+    case 'pending':     return 0
+    case 'joining':     return 1
+    case 'in_progress': return 2
+    case 'processing':  return 3  // could be transcribing or briefing — shown as step 3
+    case 'complete':    return 5
+    case 'failed':      return -1
+    default:            return 0
+  }
 }
 
 function formatDuration(startedAt: string | null, endedAt: string | null): string {
@@ -85,18 +109,92 @@ function TranscriptLine({ line }: { line: string }) {
   return <p className="text-sm leading-relaxed text-gray-700 mb-2">{line}</p>
 }
 
-export default function MeetingDetailClient({ meeting, orgSlug }: Props) {
-  const [liveData] = useState<Meeting>(meeting)
-  const isActive = liveData.status === 'in_progress' || liveData.status === 'processing' || liveData.status === 'joining'
+function MeetingProgress({ status }: { status: string }) {
+  if (status === 'failed') {
+    return (
+      <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-center gap-3">
+        <span className="text-red-500 shrink-0">✕</span>
+        <p className="text-sm text-red-700 font-medium">Bot encountered an error. The meeting could not be recorded.</p>
+      </div>
+    )
+  }
 
-  // Poll by refreshing the page every 15s while meeting is active
+  const currentStep = statusToStep(status)
+  const isActive = status !== 'complete' && status !== 'failed'
+
+  return (
+    <div className="mb-6 rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Meeting Progress</p>
+        {isActive && (
+          <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+            Live
+          </span>
+        )}
+      </div>
+      <div className="flex items-start gap-0">
+        {STEPS.map((step, i) => {
+          const done = i < currentStep
+          const active = i === currentStep
+          const future = i > currentStep
+          return (
+            <div key={step.key} className="flex-1 flex flex-col items-center relative">
+              {/* Connector line */}
+              {i < STEPS.length - 1 && (
+                <div className={`absolute top-3 left-1/2 w-full h-0.5 ${done || active ? 'bg-accent' : 'bg-gray-200'} transition-colors duration-500`} />
+              )}
+              {/* Dot */}
+              <div className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-500 ${
+                done
+                  ? 'border-accent bg-accent'
+                  : active
+                    ? 'border-accent bg-white'
+                    : 'border-gray-200 bg-white'
+              }`}>
+                {done ? (
+                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                ) : active ? (
+                  <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+                ) : (
+                  <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+                )}
+              </div>
+              {/* Label */}
+              <p className={`mt-2 text-center text-xs font-medium leading-tight ${
+                done ? 'text-accent' : active ? 'text-gray-900' : future ? 'text-gray-400' : 'text-gray-400'
+              }`}>
+                {step.label}
+              </p>
+              {active && (
+                <p className="mt-0.5 text-center text-xs text-gray-400 leading-tight">{step.sub}</p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+export default function MeetingDetailClient({ meeting, orgSlug }: Props) {
+  const [liveData, setLiveData] = useState<Meeting>(meeting)
+  const isActive = liveData.status !== 'complete' && liveData.status !== 'failed'
+
+  // Poll API instead of full page reload
   useEffect(() => {
     if (!isActive) return
-    const interval = setInterval(() => {
-      window.location.reload()
-    }, 15000)
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/meetings/${liveData.id}?orgId=${liveData.org_id}`)
+      if (res.ok) {
+        const { meeting: updated } = await res.json()
+        setLiveData(updated)
+      }
+    }, 10000)
     return () => clearInterval(interval)
-  }, [isActive])
+  }, [isActive, liveData.id, liveData.org_id])
 
   const findings = liveData.findings
   const transcriptLines = liveData.transcript_text?.split('\n').filter(Boolean) ?? []
@@ -140,17 +238,8 @@ export default function MeetingDetailClient({ meeting, orgSlug }: Props) {
         </div>
       </div>
 
-      {/* Live banner */}
-      {isActive && (
-        <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-3">
-          <span className="inline-block h-2 w-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-          <p className="text-sm text-amber-800">
-            {liveData.status === 'in_progress'
-              ? 'StratPartner is in this meeting — transcript will appear when it ends.'
-              : 'StratPartner is analyzing the transcript and preparing your briefing…'}
-          </p>
-        </div>
-      )}
+      {/* Progress timeline */}
+      <MeetingProgress status={liveData.status} />
 
       {/* Two-column layout */}
       <div className="grid gap-6 lg:grid-cols-5">

@@ -24,7 +24,8 @@ export async function POST(req: NextRequest) {
 
   const payload = JSON.parse(rawBody)
   const event: string = payload.event ?? ''
-  const botId: string = payload.data?.bot_id ?? ''
+  // Recall sends bot id at data.bot.id
+  const botId: string = payload.data?.bot?.id ?? payload.data?.bot_id ?? ''
 
   if (!botId) return NextResponse.json({ ok: true })
 
@@ -49,7 +50,8 @@ export async function POST(req: NextRequest) {
 
   // 3. Handle events
   if (event === 'bot.status_change') {
-    const status: string = payload.data?.status?.code ?? ''
+    // Recall sends status code at data.data.code
+    const status: string = payload.data?.data?.code ?? payload.data?.status?.code ?? ''
 
     if (status === 'joining_call') {
       await supabase
@@ -63,8 +65,15 @@ export async function POST(req: NextRequest) {
         .from('meetings')
         .update({ status: 'processing', ended_at: new Date().toISOString() })
         .eq('id', meeting.id)
-      // Fire-and-forget extraction
-      extractMeetingAsync(meeting.id, orgSlug)
+    } else if (status === 'done') {
+      // 'done' fires after transcription is complete — best trigger for extraction
+      if (meeting.status !== 'complete') {
+        await supabase
+          .from('meetings')
+          .update({ status: 'processing', ended_at: meeting.status === 'in_progress' ? new Date().toISOString() : undefined })
+          .eq('id', meeting.id)
+        extractMeetingAsync(meeting.id, orgSlug)
+      }
     } else if (status === 'fatal') {
       await supabase.from('meetings').update({ status: 'failed' }).eq('id', meeting.id)
     }
