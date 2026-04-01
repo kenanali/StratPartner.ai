@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
         realtime_endpoints: [
           {
             type: 'webhook',
-            url: `${process.env.NEXT_PUBLIC_APP_URL}/api/meetings/webhook`,
+            url: `${process.env.APP_URL}/api/meetings/webhook`,
             events: ['transcript.data'],
           },
         ],
