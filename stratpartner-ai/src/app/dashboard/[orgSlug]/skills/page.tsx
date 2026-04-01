@@ -14,30 +14,18 @@ export default async function SkillsPage({ params }: Props) {
   const { data: org } = await supabase.from('orgs').select('id').eq('slug', orgSlug).single()
   if (!org) redirect('/')
 
-  let skills: Skill[] = []
+  // Fetch all global skills, then overlay org-specific enabled state
+  const [{ data: allSkills }, { data: orgSkills }] = await Promise.all([
+    supabase.from('skills').select('*').order('name'),
+    supabase.from('org_skills').select('skill_id, enabled').eq('org_id', org.id),
+  ])
 
-  // Try org_skills join first, fall back to all skills
-  try {
-    const { data: orgSkills } = await supabase
-      .from('org_skills')
-      .select('enabled, skills(*)')
-      .eq('org_id', org.id)
+  const enabledMap = new Map((orgSkills ?? []).map((r) => [r.skill_id as string, r.enabled as boolean]))
 
-    if (orgSkills && orgSkills.length > 0) {
-      skills = orgSkills.map((row) => ({
-        ...(row.skills as unknown as Skill),
-        enabled: row.enabled ?? true,
-      }))
-    } else {
-      throw new Error('fallback')
-    }
-  } catch {
-    const { data } = await supabase
-      .from('skills')
-      .select('*')
-      .order('name')
-    skills = (data ?? []).map((s) => ({ ...s, enabled: true })) as Skill[]
-  }
+  const skills: Skill[] = (allSkills ?? []).map((s) => ({
+    ...(s as unknown as Skill),
+    enabled: enabledMap.has(s.id) ? (enabledMap.get(s.id) ?? true) : true,
+  }))
 
   return (
     <div className="p-8">
