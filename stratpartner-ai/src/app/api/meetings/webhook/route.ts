@@ -11,8 +11,11 @@ export async function POST(req: NextRequest) {
   // 1. Read raw body for signature verification
   const rawBody = await req.text()
 
-  // 2. Verify Svix signature (Recall uses Svix for webhook delivery)
-  if (process.env.RECALL_WEBHOOK_SECRET) {
+  // 2. Verify signature
+  // Account-level webhooks use Svix (svix-signature header present)
+  // Per-bot realtime_endpoints webhooks are unsigned — accept them directly
+  const isSvix = !!req.headers.get('svix-signature')
+  if (isSvix && process.env.RECALL_WEBHOOK_SECRET) {
     const wh = new Webhook(process.env.RECALL_WEBHOOK_SECRET)
     try {
       wh.verify(rawBody, {

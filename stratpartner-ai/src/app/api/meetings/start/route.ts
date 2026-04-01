@@ -31,6 +31,19 @@ export async function POST(req: NextRequest) {
     body: JSON.stringify({
       meeting_url: meetingUrl,
       bot_name: 'StratPartner',
+      recording_config: {
+        transcript: {
+          provider: { recallai_streaming: {} },
+          diarization: { use_separate_streams_when_available: true },
+        },
+        realtime_endpoints: [
+          {
+            type: 'webhook',
+            url: `${process.env.NEXT_PUBLIC_APP_URL}/api/meetings/webhook`,
+            events: ['transcript.data', 'bot.status_change'],
+          },
+        ],
+      },
     }),
   })
 
