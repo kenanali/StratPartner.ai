@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const appUrl = process.env.APP_URL
+  console.log('[meetings/start] APP_URL=', appUrl)
   if (!appUrl) {
     return NextResponse.json({ error: 'APP_URL env var not set — cannot build webhook URL' }, { status: 503 })
   }
