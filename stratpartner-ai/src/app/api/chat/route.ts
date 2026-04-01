@@ -10,12 +10,21 @@ import { parseDeliverable, saveDeliverable } from '@/lib/parseDeliverable'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+interface Attachment {
+  type: 'image' | 'document' | 'text'
+  mimeType?: string
+  data?: string      // base64 for image/document
+  content?: string   // plain text for text type
+  fileName: string
+}
+
 export async function POST(req: NextRequest) {
   let body: {
     org_id?: string
     message?: string
     session_id?: string
     project_id?: string
+    attachments?: Attachment[]
   }
 
   try {
@@ -24,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const { org_id, message, session_id, project_id } = body
+  const { org_id, message, session_id, project_id, attachments = [] } = body
 
   if (!org_id || !message || !session_id) {
     return NextResponse.json(
@@ -128,12 +137,46 @@ export async function POST(req: NextRequest) {
   })
 
   // 10. Build Anthropic messages array
+  // Build user content — attachments first, then text
+  const userContent: Anthropic.ContentBlockParam[] = []
+
+  for (const att of attachments) {
+    if (att.type === 'image' && att.data && att.mimeType) {
+      const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
+      type ImageMediaType = typeof validImageTypes[number]
+      const mediaType: ImageMediaType = validImageTypes.includes(att.mimeType as ImageMediaType)
+        ? (att.mimeType as ImageMediaType)
+        : 'image/jpeg'
+      userContent.push({
+        type: 'image',
+        source: { type: 'base64', media_type: mediaType, data: att.data },
+      })
+    } else if (att.type === 'document' && att.data) {
+      userContent.push({
+        type: 'document',
+        source: { type: 'base64', media_type: 'application/pdf', data: att.data },
+      } as Anthropic.ContentBlockParam)
+    } else if (att.type === 'text' && att.content) {
+      userContent.push({
+        type: 'text',
+        text: `[Attached file: ${att.fileName}]\n\`\`\`\n${att.content}\n\`\`\``,
+      })
+    }
+  }
+
+  userContent.push({ type: 'text', text: message })
+
+  const userMessage: Anthropic.MessageParam = {
+    role: 'user',
+    content: userContent.length === 1 ? message : userContent,
+  }
+
   const anthropicMessages: Anthropic.MessageParam[] = [
     ...historyMessages.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content as string,
     })),
-    { role: 'user' as const, content: message },
+    userMessage,
   ]
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

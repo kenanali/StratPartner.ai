@@ -27,6 +27,7 @@ export default async function Home() {
             links: [
               { href: `/chat/${org.slug}`, label: 'Chat (standalone)' },
               { href: `/dashboard/${org.slug}`, label: 'Dashboard' },
+              { href: `/dashboard/${org.slug}/sources`, label: 'Sources — file manager' },
               ...(projects ?? []).map((p) => ({
                 href: `/dashboard/${org.slug}/projects/${p.id}`,
                 label: `Project — ${p.name}`,

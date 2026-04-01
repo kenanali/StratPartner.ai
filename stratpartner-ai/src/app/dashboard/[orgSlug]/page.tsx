@@ -50,12 +50,20 @@ export default async function DashboardPage({ params }: PageProps) {
             <h1 className="text-lg font-bold text-gray-900">{org.name}</h1>
             <p className="text-xs text-gray-400">StratPartner.ai workspace</p>
           </div>
-          <Link
-            href={`/chat/${org.slug}`}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
-          >
-            Open Chat
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href={`/dashboard/${org.slug}/sources`}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Sources
+            </Link>
+            <Link
+              href={`/chat/${org.slug}`}
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-500"
+            >
+              Open Chat
+            </Link>
+          </div>
         </div>
       </header>
 
