@@ -19,13 +19,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Recall.ai not configured' }, { status: 503 })
   }
 
-  const appUrl = process.env.APP_URL
-  console.log('[meetings/start] APP_URL=', appUrl)
-  if (!appUrl) {
-    return NextResponse.json({ error: 'APP_URL env var not set — cannot build webhook URL' }, { status: 503 })
-  }
-
   const platform = detectPlatform(meetingUrl)
+
+  // Derive webhook URL from the incoming request host — works in all environments
+  const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
+  const proto = req.headers.get('x-forwarded-proto') ?? 'https'
+  const webhookUrl = `${proto}://${host}/api/meetings/webhook`
 
   // Deploy bot via Recall.ai
   const recallRes = await fetch('https://us-west-2.recall.ai/api/v1/bot', {
@@ -45,7 +44,7 @@ export async function POST(req: NextRequest) {
         realtime_endpoints: [
           {
             type: 'webhook',
-            url: `${appUrl}/api/meetings/webhook`,
+            url: webhookUrl,
             events: ['transcript.data'],
           },
         ],
