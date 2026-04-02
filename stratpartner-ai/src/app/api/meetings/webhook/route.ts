@@ -9,6 +9,7 @@ export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
+  console.log('[webhook] received, length=', rawBody.length, 'svix=', !!req.headers.get('svix-signature'))
 
   // Account-level webhooks use Svix; per-bot realtime_endpoints are unsigned
   const isSvix = !!req.headers.get('svix-signature')
