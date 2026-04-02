@@ -19,34 +19,45 @@ export async function GET(req: NextRequest) {
 
   const recallKey = process.env.RECALL_API_KEY
   if (!recallKey) {
-    return NextResponse.json({ error: 'RECALL_API_KEY not set in this function', meeting })
+    return NextResponse.json({ error: 'RECALL_API_KEY not set', meeting })
   }
 
-  const [transcriptRes, botRes] = await Promise.all([
-    fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/transcript/`, {
-      headers: { Authorization: `Token ${recallKey}` },
-    }),
-    fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/`, {
-      headers: { Authorization: `Token ${recallKey}` },
-    }),
-  ])
+  // Fetch bot to get recording ID
+  const botRes = await fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/`, {
+    headers: { Authorization: `Token ${recallKey}` },
+  })
+  const bot = await botRes.json()
+  const recordingId = bot.recordings?.[0]?.id ?? null
 
-  const [transcriptBody, botBody] = await Promise.all([
-    transcriptRes.text(),
-    botRes.text(),
-  ])
+  // Try new v2 endpoint using recording ID
+  let v2TranscriptStatus = null
+  let v2TranscriptBody = null
+  if (recordingId) {
+    const v2Res = await fetch(`https://us-west-2.recall.ai/api/v2/recording/${recordingId}/transcript/`, {
+      headers: { Authorization: `Token ${recallKey}` },
+    })
+    v2TranscriptStatus = v2Res.status
+    v2TranscriptBody = (await v2Res.text()).slice(0, 2000)
+  }
+
+  // Also try the bot-level v2 endpoint
+  const v2BotRes = await fetch(`https://us-west-2.recall.ai/api/v2/bot/${meeting.recall_bot_id}/transcript/`, {
+    headers: { Authorization: `Token ${recallKey}` },
+  })
+  const v2BotTranscriptStatus = v2BotRes.status
+  const v2BotTranscriptBody = (await v2BotRes.text()).slice(0, 2000)
 
   return NextResponse.json({
-    meeting: {
-      id: meeting.id,
-      status: meeting.status,
-      recall_bot_id: meeting.recall_bot_id,
-      transcript_raw_length: (meeting.transcript_raw as unknown[])?.length ?? 0,
+    meeting: { id: meeting.id, status: meeting.status, recall_bot_id: meeting.recall_bot_id },
+    recording_id: recordingId,
+    bot_status_changes: bot.status_changes,
+    v2_recording_transcript: { status: v2TranscriptStatus, body: v2TranscriptBody },
+    v2_bot_transcript: { status: v2BotTranscriptStatus, body: v2BotTranscriptBody },
+    // Show what host header looks like (for webhook URL fix)
+    headers: {
+      host: req.headers.get('host'),
+      x_forwarded_host: req.headers.get('x-forwarded-host'),
+      x_forwarded_proto: req.headers.get('x-forwarded-proto'),
     },
-    recall_api_key_present: true,
-    transcript_status: transcriptRes.status,
-    transcript: transcriptBody.slice(0, 3000),
-    bot_status: botRes.status,
-    bot: botBody.slice(0, 2000),
   })
 }
