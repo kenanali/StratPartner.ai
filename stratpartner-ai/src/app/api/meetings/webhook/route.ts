@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     }
 
   } else if (event === 'transcript.data') {
-    // Per-bot realtime webhook — append segment
+    // Per-bot realtime webhook — append segment and check if bot is done
     const segment = payload.data?.transcript
     if (segment) {
       const { data: current } = await supabase.from('meetings').select('transcript_raw').eq('id', meeting.id).single()
@@ -76,9 +76,10 @@ export async function POST(req: NextRequest) {
       await supabase.from('meetings').update({ transcript_raw: [...existing, segment] }).eq('id', meeting.id)
     }
 
-  } else if (event === 'transcript.complete') {
-    // Fired when transcription is done — trigger extraction
-    if (meeting.status !== 'complete' && !meeting.proactive_message_sent) {
+    // Check if bot has finished — the last transcript.data event arrives after recording_done
+    // Recall sends is_final=true on the last segment when using recallai_streaming
+    const isFinal = payload.data?.transcript?.is_final === true
+    if (isFinal && meeting.status !== 'complete' && !meeting.proactive_message_sent) {
       await supabase.from('meetings').update({ status: 'processing', ended_at: new Date().toISOString() }).eq('id', meeting.id)
       waitUntil(extractMeetingAsync(meeting.id, orgSlug))
     }

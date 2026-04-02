@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
           {
             type: 'webhook',
             url: webhookUrl,
-            events: ['transcript.data', 'transcript.complete'],
+            events: ['transcript.data'],
           },
         ],
       },
