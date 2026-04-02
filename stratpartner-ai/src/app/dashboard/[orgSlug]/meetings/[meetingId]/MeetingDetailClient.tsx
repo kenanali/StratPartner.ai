@@ -181,7 +181,28 @@ function MeetingProgress({ status }: { status: string }) {
 
 export default function MeetingDetailClient({ meeting, orgSlug }: Props) {
   const [liveData, setLiveData] = useState<Meeting>(meeting)
+  const [processing, setProcessing] = useState(false)
   const isActive = liveData.status !== 'complete' && liveData.status !== 'failed'
+
+  const showProcessButton =
+    ['pending', 'failed', 'in_progress'].includes(liveData.status) &&
+    !liveData.proactive_message_sent
+
+  async function handleProcessMeeting() {
+    setProcessing(true)
+    try {
+      const res = await fetch(`/api/meetings/${liveData.id}/extract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orgId: liveData.org_id }),
+      })
+      if (res.ok) {
+        setLiveData((prev) => ({ ...prev, status: 'processing' }))
+      }
+    } finally {
+      setProcessing(false)
+    }
+  }
 
   // Poll API instead of full page reload
   useEffect(() => {
@@ -220,6 +241,15 @@ export default function MeetingDetailClient({ meeting, orgSlug }: Props) {
             </p>
           </div>
           <div className="flex gap-2">
+            {showProcessButton && (
+              <button
+                onClick={handleProcessMeeting}
+                disabled={processing}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                {processing ? 'Processing…' : 'Process Meeting'}
+              </button>
+            )}
             {liveData.session_id && (
               <Link
                 href={`/chat/${orgSlug}?session=${liveData.session_id}`}

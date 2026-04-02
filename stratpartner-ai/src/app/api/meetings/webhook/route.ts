@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
   const event: string = payload.event ?? ''
   // Recall sends bot id at data.bot.id
   const botId: string = payload.data?.bot?.id ?? payload.data?.bot_id ?? ''
+  console.log('[webhook] event=', event, 'botId=', botId, 'segment keys=', payload.data?.transcript ? Object.keys(payload.data.transcript) : null)
 
   if (!botId) return NextResponse.json({ ok: true })
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
     }
   } else if (event === 'transcript.data') {
     // Append transcript segment to transcript_raw
-    const segment = payload.data?.data?.transcript ?? payload.data?.transcript
+    const segment = payload.data?.transcript
     if (segment) {
       // Fetch current transcript_raw and append
       const { data: current } = await supabase
