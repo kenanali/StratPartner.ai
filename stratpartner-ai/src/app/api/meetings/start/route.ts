@@ -21,10 +21,12 @@ export async function POST(req: NextRequest) {
 
   const platform = detectPlatform(meetingUrl)
 
-  // Derive webhook URL from the incoming request host — works in all environments
+  // Use custom domain — deployment URLs change per-deploy and lose webhook events
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
   const proto = req.headers.get('x-forwarded-proto') ?? 'https'
-  const webhookUrl = `${proto}://${host}/api/meetings/webhook`
+  // If the host is a vercel.app deployment URL, use the stable custom domain instead
+  const stableHost = host.includes('vercel.app') ? 'stratpartner.ai' : host
+  const webhookUrl = `${proto}://${stableHost}/api/meetings/webhook`
 
   // Deploy bot via Recall.ai
   const recallRes = await fetch('https://us-west-2.recall.ai/api/v1/bot', {
