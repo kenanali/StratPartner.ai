@@ -83,22 +83,26 @@ export default function MeetingsClient({ orgId, orgSlug, initialMeetings, projec
   const [toast, setToast] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Poll while any meeting is in_progress or processing
+  // Always poll — 5s when active meetings exist, 30s otherwise
   const hasActiveMeetings = meetings.some((m) => !['complete', 'failed'].includes(m.status))
 
   useEffect(() => {
-    if (!hasActiveMeetings) {
-      if (pollRef.current) clearInterval(pollRef.current)
-      return
-    }
+    const interval = hasActiveMeetings ? 5000 : 30000
 
     pollRef.current = setInterval(async () => {
-      const res = await fetch(`/api/meetings?orgId=${orgId}`)
-      if (res.ok) {
-        const { meetings: updated } = await res.json()
-        setMeetings(updated)
+      try {
+        const res = await fetch(`/api/meetings?orgId=${orgId}`)
+        if (res.ok) {
+          const { meetings: updated } = await res.json()
+          // Only replace if API returns results — prevents empty-array flash on transient error
+          if (Array.isArray(updated) && updated.length > 0) {
+            setMeetings(updated)
+          }
+        }
+      } catch {
+        // non-critical
       }
-    }, 30000)
+    }, interval)
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
