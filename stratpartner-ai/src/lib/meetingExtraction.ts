@@ -215,7 +215,7 @@ async function createTasksFromActionItems(
  * Meeting extraction pipeline.
  * Returns a Promise — use waitUntil() in Vercel webhook handlers to keep function alive.
  */
-export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise<void> {
+export function extractMeetingAsync(meetingId: string, orgSlug: string, recordingId?: string): Promise<void> {
   return (async () => {
     const supabase = getSupabaseAdmin()
 
@@ -232,8 +232,54 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
       // 2. Idempotency guard
       if (meeting.proactive_message_sent) return
 
-      // 3. Flatten transcript from webhook-collected segments
-      const transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
+      // 3. Get transcript text
+      // Primary: async transcript from Recall API (recording.done path)
+      // Fallback: real-time segments collected via transcript.data webhooks
+      let transcriptText = ''
+
+      if (recordingId && process.env.RECALL_API_KEY) {
+        try {
+          // Request async transcript creation
+          const createRes = await fetch(
+            `https://us-west-2.recall.ai/api/v1/recording/${recordingId}/create_transcript/`,
+            {
+              method: 'POST',
+              headers: { Authorization: `Token ${process.env.RECALL_API_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ provider: { recallai_async: {} } }),
+            }
+          )
+          if (createRes.ok) {
+            const { id: transcriptId } = await createRes.json()
+            // Poll for completion (up to 60s)
+            for (let i = 0; i < 12; i++) {
+              await new Promise((r) => setTimeout(r, 5000))
+              const statusRes = await fetch(
+                `https://us-west-2.recall.ai/api/v1/transcript/${transcriptId}/`,
+                { headers: { Authorization: `Token ${process.env.RECALL_API_KEY}` } }
+              )
+              if (statusRes.ok) {
+                const t = await statusRes.json()
+                if (t.status?.code === 'done' && t.data?.download_url) {
+                  const dlRes = await fetch(t.data.download_url)
+                  if (dlRes.ok) {
+                    const segments: TranscriptSegment[] = await dlRes.json()
+                    transcriptText = flattenTranscript(segments)
+                    break
+                  }
+                } else if (t.status?.code === 'failed') {
+                  break
+                }
+              }
+            }
+          }
+        } catch { /* fall through to realtime segments */ }
+      }
+
+      // Fallback: use real-time segments collected during the meeting
+      if (!transcriptText) {
+        transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
+      }
+
       if (!transcriptText) {
         await supabase.from('meetings').update({ status: 'failed' }).eq('id', meetingId)
         return

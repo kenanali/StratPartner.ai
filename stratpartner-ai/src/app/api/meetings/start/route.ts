@@ -21,14 +21,14 @@ export async function POST(req: NextRequest) {
 
   const platform = detectPlatform(meetingUrl)
 
-  // Use custom domain — deployment URLs change per-deploy and lose webhook events
+  // Always use the stable custom domain — deployment URLs change per-deploy
   const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? ''
   const proto = req.headers.get('x-forwarded-proto') ?? 'https'
-  // If the host is a vercel.app deployment URL, use the stable custom domain instead
   const stableHost = host.includes('vercel.app') ? 'stratpartner.ai' : host
   const webhookUrl = `${proto}://${stableHost}/api/meetings/webhook`
 
-  // Deploy bot via Recall.ai
+  // Create bot with recallai_streaming for real-time transcript segments
+  // Account-level webhook (configured in Recall dashboard) handles recording.done → async extraction
   const recallRes = await fetch('https://us-west-2.recall.ai/api/v1/bot', {
     method: 'POST',
     headers: {
@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
       recording_config: {
         transcript: {
           provider: { recallai_streaming: {} },
-          diarization: { use_separate_streams_when_available: true },
         },
         realtime_endpoints: [
           {
