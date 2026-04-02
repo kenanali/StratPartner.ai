@@ -1,408 +1,182 @@
 'use client'
 
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-
-interface Decision {
-  text: string
-  owner: string
-  confidence: 'high' | 'medium' | 'low'
-}
-
-interface ActionItem {
-  text: string
-  owner: string
-  due: string | null
-  suggested_agent_role: string | null
-}
-
-interface TaskCreated {
-  task_id: string
-  title: string
-}
-
-interface MeetingFindings {
-  summary: string
-  decisions: Decision[]
-  action_items: ActionItem[]
-  new_context: string[]
-  open_questions: string[]
-}
-
-interface Meeting {
-  id: string
-  org_id: string
-  title: string | null
-  platform: string | null
-  status: string
-  transcript_text: string | null
-  findings: MeetingFindings | null
-  tasks_created: TaskCreated[] | null
-  session_id: string | null
-  started_at: string | null
-  ended_at: string | null
-  proactive_message_sent: boolean
-}
 
 interface Props {
-  meeting: Meeting
+  meetingId: string
   orgSlug: string
+  orgId: string
 }
 
-const PLATFORM_LABELS: Record<string, string> = {
-  zoom: 'Zoom',
-  meet: 'Google Meet',
-  teams: 'Teams',
-  unknown: 'Meeting',
-}
-
-// Pipeline steps in order
-const STEPS = [
-  { key: 'pending',    label: 'Bot created',        sub: 'Waiting to join' },
-  { key: 'joining',   label: 'Joining',             sub: 'Connecting to meeting' },
-  { key: 'in_progress', label: 'Recording',         sub: 'Capturing transcript' },
-  { key: 'processing', label: 'Transcribing',       sub: 'Processing audio' },
-  { key: 'briefing',  label: 'Generating briefing', sub: 'Analyzing with AI' },
-  { key: 'complete',  label: 'Complete',            sub: 'Briefing ready' },
-]
-
-// Map DB status → step index
-function statusToStep(status: string): number {
-  switch (status) {
-    case 'pending':     return 0
-    case 'joining':     return 1
-    case 'in_progress': return 2
-    case 'processing':  return 3  // could be transcribing or briefing — shown as step 3
-    case 'complete':    return 5
-    case 'failed':      return -1
-    default:            return 0
+interface DebugData {
+  meeting: {
+    id: string
+    status: string
+    recall_bot_id: string
+    transcript_segments: number
+    transcript_preview: unknown[]
+    proactive_message_sent: boolean
+    has_findings: boolean
   }
+  recall: {
+    id: string
+    latest_status: string | null
+    status_changes: Array<{ code: string; created_at: string }>
+    realtime_endpoints: Array<{ url: string; events: string[] }>
+    recordings: Array<{ id: string; status: string }>
+  } | null
+  recall_error: string | null
 }
 
-function formatDuration(startedAt: string | null, endedAt: string | null): string {
-  if (!startedAt || !endedAt) return '—'
-  const ms = new Date(endedAt).getTime() - new Date(startedAt).getTime()
-  const mins = Math.round(ms / 60000)
-  if (mins < 60) return `${mins} min`
-  const hrs = Math.floor(mins / 60)
-  const rem = mins % 60
-  return rem > 0 ? `${hrs}h ${rem}m` : `${hrs}h`
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
-}
-
-function TranscriptLine({ line }: { line: string }) {
-  const colonIdx = line.indexOf(':')
-  if (colonIdx > 0 && colonIdx < 40) {
-    const speaker = line.slice(0, colonIdx)
-    const text = line.slice(colonIdx + 1).trim()
-    return (
-      <p className="text-sm leading-relaxed mb-2">
-        <span className="font-semibold text-accent">{speaker}:</span>{' '}
-        <span className="text-gray-700">{text}</span>
-      </p>
-    )
-  }
-  return <p className="text-sm leading-relaxed text-gray-700 mb-2">{line}</p>
-}
-
-function MeetingProgress({ status }: { status: string }) {
-  if (status === 'failed') {
-    return (
-      <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-center gap-3">
-        <span className="text-red-500 shrink-0">✕</span>
-        <p className="text-sm text-red-700 font-medium">Bot encountered an error. The meeting could not be recorded.</p>
-      </div>
-    )
-  }
-
-  const currentStep = statusToStep(status)
-  const isActive = status !== 'complete' && status !== 'failed'
-
+function Row({ label, value, highlight }: { label: string; value?: string; highlight?: 'red' | 'green' | 'yellow' }) {
+  const color = highlight === 'red' ? 'text-red-600' : highlight === 'green' ? 'text-green-600' : highlight === 'yellow' ? 'text-amber-600' : 'text-gray-700'
   return (
-    <div className="mb-6 rounded-xl border border-gray-200 bg-white px-5 py-4">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Meeting Progress</p>
-        {isActive && (
-          <span className="flex items-center gap-1.5 text-xs text-amber-600 font-medium">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-            Live
-          </span>
-        )}
-      </div>
-      <div className="flex items-start gap-0">
-        {STEPS.map((step, i) => {
-          const done = i < currentStep
-          const active = i === currentStep
-          const future = i > currentStep
-          return (
-            <div key={step.key} className="flex-1 flex flex-col items-center relative">
-              {/* Connector line */}
-              {i < STEPS.length - 1 && (
-                <div className={`absolute top-3 left-1/2 w-full h-0.5 ${done || active ? 'bg-accent' : 'bg-gray-200'} transition-colors duration-500`} />
-              )}
-              {/* Dot */}
-              <div className={`relative z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-500 ${
-                done
-                  ? 'border-accent bg-accent'
-                  : active
-                    ? 'border-accent bg-white'
-                    : 'border-gray-200 bg-white'
-              }`}>
-                {done ? (
-                  <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : active ? (
-                  <span className="h-2 w-2 rounded-full bg-accent animate-pulse" />
-                ) : (
-                  <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
-                )}
-              </div>
-              {/* Label */}
-              <p className={`mt-2 text-center text-xs font-medium leading-tight ${
-                done ? 'text-accent' : active ? 'text-gray-900' : future ? 'text-gray-400' : 'text-gray-400'
-              }`}>
-                {step.label}
-              </p>
-              {active && (
-                <p className="mt-0.5 text-center text-xs text-gray-400 leading-tight">{step.sub}</p>
-              )}
-            </div>
-          )
-        })}
-      </div>
-    </div>
+    <p>
+      <span className="text-gray-400 w-48 inline-block">{label}:</span>
+      <span className={color}>{value ?? '—'}</span>
+    </p>
   )
 }
 
-export default function MeetingDetailClient({ meeting, orgSlug }: Props) {
-  const [liveData, setLiveData] = useState<Meeting>(meeting)
-  const [processing, setProcessing] = useState(false)
-  const isActive = liveData.status !== 'complete' && liveData.status !== 'failed'
+export default function MeetingDetailClient({ meetingId, orgSlug, orgId }: Props) {
+  const [data, setData] = useState<DebugData | null>(null)
+  const [extracting, setExtracting] = useState(false)
+  const [extractResult, setExtractResult] = useState<string | null>(null)
+  const [lastRefresh, setLastRefresh] = useState('')
 
-  const showProcessButton =
-    ['pending', 'failed', 'in_progress'].includes(liveData.status) &&
-    !liveData.proactive_message_sent
+  const refresh = useCallback(async () => {
+    const res = await fetch(`/api/meetings/${meetingId}/debug`)
+    if (res.ok) {
+      setData(await res.json())
+      setLastRefresh(new Date().toLocaleTimeString())
+    }
+  }, [meetingId])
 
-  async function handleProcessMeeting() {
-    setProcessing(true)
+  useEffect(() => {
+    refresh()
+    const interval = setInterval(refresh, 5000)
+    return () => clearInterval(interval)
+  }, [refresh])
+
+  async function handleExtract() {
+    setExtracting(true)
+    setExtractResult(null)
     try {
-      const res = await fetch(`/api/meetings/${liveData.id}/extract`, {
+      const res = await fetch(`/api/meetings/${meetingId}/extract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orgId: liveData.org_id }),
+        body: JSON.stringify({ orgId }),
       })
-      if (res.ok) {
-        setLiveData((prev) => ({ ...prev, status: 'processing' }))
-      }
+      const json = await res.json()
+      setExtractResult(res.ok ? '✓ Extraction triggered — check back in ~30s' : `Error: ${json.error}`)
+    } catch (e) {
+      setExtractResult(`Error: ${String(e)}`)
     } finally {
-      setProcessing(false)
+      setExtracting(false)
     }
   }
 
-  // Poll API instead of full page reload
-  useEffect(() => {
-    if (!isActive) return
-    const interval = setInterval(async () => {
-      const res = await fetch(`/api/meetings/${liveData.id}?orgId=${liveData.org_id}`)
-      if (res.ok) {
-        const { meeting: updated } = await res.json()
-        setLiveData(updated)
-      }
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [isActive, liveData.id, liveData.org_id])
-
-  const findings = liveData.findings
-  const transcriptLines = liveData.transcript_text?.split('\n').filter(Boolean) ?? []
+  const m = data?.meeting
 
   return (
-    <>
-      {/* Back + header */}
-      <div className="mb-6">
-        <Link
-          href={`/dashboard/${orgSlug}/meetings`}
-          className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
-        >
+    <div className="max-w-3xl mx-auto p-8 font-mono text-sm">
+      <div className="flex items-center justify-between mb-6">
+        <Link href={`/dashboard/${orgSlug}/meetings`} className="text-xs text-gray-400 hover:text-gray-600">
           ← Meetings
         </Link>
-        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="font-display text-2xl font-bold text-primary">
-              {liveData.title ?? 'Untitled Meeting'}
-            </h1>
-            <p className="mt-1 text-sm text-gray-500">
-              {formatDate(liveData.started_at)} · {formatDuration(liveData.started_at, liveData.ended_at)} ·{' '}
-              {PLATFORM_LABELS[liveData.platform ?? 'unknown'] ?? 'Meeting'}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            {showProcessButton && (
-              <button
-                onClick={handleProcessMeeting}
-                disabled={processing}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                {processing ? 'Processing…' : 'Process Meeting'}
-              </button>
-            )}
-            {liveData.session_id && (
-              <Link
-                href={`/chat/${orgSlug}?session=${liveData.session_id}`}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-              >
-                View in Chat
-              </Link>
-            )}
-            <Link
-              href={`/dashboard/${orgSlug}/sources`}
-              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              View in Sources
-            </Link>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-400">auto-refresh 5s · {lastRefresh}</span>
+          <button onClick={refresh} className="text-xs px-2 py-1 border border-gray-200 rounded hover:bg-gray-50">
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Progress timeline */}
-      <MeetingProgress status={liveData.status} />
+      {!data ? (
+        <p className="text-gray-400">Loading…</p>
+      ) : (
+        <div className="space-y-6">
 
-      {/* Two-column layout */}
-      <div className="grid gap-6 lg:grid-cols-5">
+          <section>
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">DB State</h2>
+            <div className="bg-gray-50 rounded-lg p-4 space-y-1">
+              <Row label="status" value={m?.status} highlight={m?.status === 'failed' ? 'red' : m?.status === 'complete' ? 'green' : 'yellow'} />
+              <Row label="recall_bot_id" value={m?.recall_bot_id} />
+              <Row label="transcript_segments" value={String(m?.transcript_segments ?? 0)} highlight={(m?.transcript_segments ?? 0) > 0 ? 'green' : 'red'} />
+              <Row label="proactive_message_sent" value={String(m?.proactive_message_sent)} />
+              <Row label="has_findings" value={String(m?.has_findings)} />
+            </div>
+          </section>
 
-        {/* Left — Transcript */}
-        <div className="lg:col-span-3">
-          <div className="rounded-xl border border-gray-200 bg-white">
-            <div className="border-b border-gray-100 px-5 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Full Transcript</p>
-            </div>
-            <div className="p-5 max-h-[70vh] overflow-y-auto">
-              {transcriptLines.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">
-                  {isActive
-                    ? 'Transcript will appear here when the meeting ends.'
-                    : 'No transcript available.'}
-                </p>
-              ) : (
-                transcriptLines.map((line, i) => <TranscriptLine key={i} line={line} />)
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right — Findings */}
-        <div className="lg:col-span-2 space-y-4">
-          {!findings ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-              <p className="text-sm text-gray-400">
-                {isActive
-                  ? 'Findings will appear here after the meeting ends.'
-                  : 'No findings available.'}
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Summary */}
-              <div className="rounded-xl border-l-4 border-l-accent border border-gray-200 bg-white p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Summary</p>
-                <p className="text-sm text-gray-700 leading-relaxed">{findings.summary}</p>
+          <section>
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Recall Bot</h2>
+            {data.recall_error ? (
+              <div className="bg-red-50 text-red-700 rounded-lg p-4 text-xs">{data.recall_error}</div>
+            ) : data.recall ? (
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <Row label="latest_status" value={data.recall.latest_status ?? 'unknown'} highlight={data.recall.latest_status === 'done' ? 'green' : 'yellow'} />
+                <div>
+                  <p className="text-gray-400 mb-1">status_changes:</p>
+                  {data.recall.status_changes?.map((s, i) => (
+                    <p key={i} className="ml-4 text-gray-700">
+                      <span className="text-accent">{s.code}</span>
+                      <span className="text-gray-400 ml-2 text-xs">{new Date(s.created_at).toLocaleTimeString()}</span>
+                    </p>
+                  ))}
+                </div>
+                <div>
+                  <p className="text-gray-400 mb-1">webhook_url:</p>
+                  <p className="ml-4 text-gray-700 break-all">{data.recall.realtime_endpoints?.[0]?.url ?? 'none'}</p>
+                  <p className="ml-4 text-gray-500 text-xs">events: {data.recall.realtime_endpoints?.[0]?.events?.join(', ') ?? 'none'}</p>
+                </div>
               </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-4 text-gray-400">No Recall data</div>
+            )}
+          </section>
 
-              {/* Decisions */}
-              {findings.decisions?.length > 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Decisions made</p>
-                  <ul className="space-y-2">
-                    {findings.decisions.map((d, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-gray-700">
-                        <span className="text-green-500 shrink-0 mt-0.5">✓</span>
-                        <span>
-                          {d.text}
-                          {d.owner !== 'unclear' && (
-                            <span className="ml-1.5 text-xs text-gray-400">({d.owner})</span>
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Action items */}
-              {findings.action_items?.length > 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Action items</p>
-                  <ul className="space-y-3">
-                    {findings.action_items.map((item, i) => {
-                      const linkedTask = liveData.tasks_created?.find((t) => t.title === item.text)
-                      return (
-                        <li key={i} className="text-sm text-gray-700">
-                          <div className="flex gap-2">
-                            <span className="text-accent shrink-0 mt-0.5">→</span>
-                            <div className="min-w-0">
-                              <p>{item.text}</p>
-                              <div className="mt-1 flex flex-wrap gap-1.5">
-                                {item.owner !== 'unclear' && (
-                                  <span className="text-xs text-gray-400">{item.owner}</span>
-                                )}
-                                {item.due && (
-                                  <span className="text-xs text-gray-400">· due {item.due}</span>
-                                )}
-                                {item.suggested_agent_role && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                                    {item.suggested_agent_role}
-                                  </span>
-                                )}
-                                {linkedTask && (
-                                  <span className="text-xs text-green-600">Task created ✓</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )}
-
-              {/* Open questions */}
-              {findings.open_questions?.length > 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Open questions</p>
-                  <ul className="space-y-2">
-                    {findings.open_questions.map((q, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-gray-600">
-                        <span className="text-gray-400 shrink-0 mt-0.5">?</span>
-                        <span>{q}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* New context */}
-              {findings.new_context?.length > 0 && (
-                <div className="rounded-xl border border-gray-200 bg-white p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">New context learned</p>
-                  <ul className="space-y-2">
-                    {findings.new_context.map((c, i) => (
-                      <li key={i} className="flex gap-2 text-sm text-gray-600">
-                        <span className="text-blue-400 shrink-0 mt-0.5">◆</span>
-                        <span>{c}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
+          {m && m.transcript_segments > 0 && (
+            <section>
+              <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Transcript Preview</h2>
+              <pre className="bg-gray-50 rounded-lg p-4 text-xs overflow-auto max-h-48 text-gray-700 whitespace-pre-wrap">
+                {JSON.stringify(data.meeting.transcript_preview, null, 2)}
+              </pre>
+            </section>
           )}
+
+          <section>
+            <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Actions</h2>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleExtract}
+                disabled={extracting}
+                className="px-4 py-2 bg-accent text-white text-xs rounded-lg hover:bg-violet-600 disabled:opacity-50"
+              >
+                {extracting ? 'Triggering…' : 'Force Extract'}
+              </button>
+              {m?.has_findings && (
+                <Link href={`/chat/${orgSlug}`} className="px-4 py-2 border border-gray-200 text-xs rounded-lg hover:bg-gray-50">
+                  View briefing in Chat →
+                </Link>
+              )}
+            </div>
+            {extractResult && (
+              <p className={`mt-2 text-xs ${extractResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>
+                {extractResult}
+              </p>
+            )}
+          </section>
+
+          <details>
+            <summary className="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Raw JSON</summary>
+            <pre className="mt-2 bg-gray-50 rounded-lg p-4 text-xs overflow-auto max-h-96 text-gray-700 whitespace-pre-wrap">
+              {JSON.stringify(data, null, 2)}
+            </pre>
+          </details>
+
         </div>
-      </div>
-    </>
+      )}
+    </div>
   )
 }
