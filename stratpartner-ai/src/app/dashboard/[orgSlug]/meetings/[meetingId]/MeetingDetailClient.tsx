@@ -44,6 +44,9 @@ export default function MeetingDetailClient({ meetingId, orgSlug, orgId }: Props
   const [extracting, setExtracting] = useState(false)
   const [extractResult, setExtractResult] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState('')
+  const [syncExtracting, setSyncExtracting] = useState(false)
+  const [syncResult, setSyncResult] = useState<Record<string, unknown> | null>(null)
+  const [syncExpanded, setSyncExpanded] = useState(false)
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/meetings/${meetingId}/debug`)
@@ -74,6 +77,25 @@ export default function MeetingDetailClient({ meetingId, orgSlug, orgId }: Props
       setExtractResult(`Error: ${String(e)}`)
     } finally {
       setExtracting(false)
+    }
+  }
+
+  async function handleExtractSync() {
+    setSyncExtracting(true)
+    setSyncResult(null)
+    setSyncExpanded(false)
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/extract-sync`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      setSyncResult(json as Record<string, unknown>)
+      setSyncExpanded(true)
+    } catch (e) {
+      setSyncResult({ error: String(e) })
+      setSyncExpanded(true)
+    } finally {
+      setSyncExtracting(false)
     }
   }
 
@@ -147,13 +169,20 @@ export default function MeetingDetailClient({ meetingId, orgSlug, orgId }: Props
 
           <section>
             <h2 className="text-xs font-bold uppercase tracking-wide text-gray-400 mb-2">Actions</h2>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={handleExtract}
                 disabled={extracting}
                 className="px-4 py-2 bg-accent text-white text-xs rounded-lg hover:bg-violet-600 disabled:opacity-50"
               >
                 {extracting ? 'Triggering…' : 'Force Extract'}
+              </button>
+              <button
+                onClick={handleExtractSync}
+                disabled={syncExtracting}
+                className="px-4 py-2 bg-gray-700 text-white text-xs rounded-lg hover:bg-gray-900 disabled:opacity-50"
+              >
+                {syncExtracting ? 'Fetching…' : 'Extract Sync (Debug)'}
               </button>
               {m?.has_findings && (
                 <Link href={`/chat/${orgSlug}`} className="px-4 py-2 border border-gray-200 text-xs rounded-lg hover:bg-gray-50">
@@ -165,6 +194,21 @@ export default function MeetingDetailClient({ meetingId, orgSlug, orgId }: Props
               <p className={`mt-2 text-xs ${extractResult.startsWith('✓') ? 'text-green-600' : 'text-red-600'}`}>
                 {extractResult}
               </p>
+            )}
+            {syncResult && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setSyncExpanded((v) => !v)}
+                  className="text-xs text-gray-400 hover:text-gray-600 underline"
+                >
+                  {syncExpanded ? 'Hide' : 'Show'} sync result
+                </button>
+                {syncExpanded && (
+                  <pre className="mt-2 bg-gray-50 rounded-lg p-4 text-xs overflow-auto max-h-96 text-gray-700 whitespace-pre-wrap">
+                    {JSON.stringify(syncResult, null, 2)}
+                  </pre>
+                )}
+              </div>
             )}
           </section>
 

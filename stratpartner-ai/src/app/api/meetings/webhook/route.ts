@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
 
-  // Account-level webhooks (bot.status_change, recording.done) are signed via Svix
+  // Account-level webhooks are signed via Svix
   // Per-bot realtime_endpoints (transcript.data) are unsigned
   const isSvix = !!req.headers.get('svix-signature')
   if (isSvix && process.env.RECALL_WEBHOOK_SECRET) {
@@ -29,9 +29,7 @@ export async function POST(req: NextRequest) {
   const payload = JSON.parse(rawBody)
   const event: string = payload.event ?? ''
 
-  // Bot ID location differs by event type:
-  // - bot.status_change / recording.done (account webhook): data.bot.id
-  // - transcript.data (per-bot realtime): data.bot.id
+  // Bot ID location: data.bot.id for all account-level and per-bot events
   const botId: string = payload.data?.bot?.id ?? ''
 
   if (!botId) return NextResponse.json({ ok: true })
@@ -47,7 +45,6 @@ export async function POST(req: NextRequest) {
   if (!meeting) return NextResponse.json({ ok: true })
 
   // ── Bot status events (account-level Svix webhook) ───────────────────────
-  // Each status is its own event: bot.joining_call, bot.in_call_recording, etc.
   if (event === 'bot.joining_call') {
     await supabase.from('meetings').update({ status: 'joining', started_at: new Date().toISOString() }).eq('id', meeting.id)
   } else if (event === 'bot.in_call_not_recording' || event === 'bot.in_call_recording') {
@@ -55,7 +52,7 @@ export async function POST(req: NextRequest) {
   } else if (event === 'bot.call_ended') {
     await supabase.from('meetings').update({ status: 'processing', ended_at: new Date().toISOString() }).eq('id', meeting.id)
   } else if (event === 'bot.done') {
-    // bot.done means recording is uploaded — recording.done will follow shortly and trigger extraction
+    // bot.done means the bot has finished — transcript.done will follow and trigger extraction
     if (meeting.status !== 'complete') {
       await supabase.from('meetings').update({ status: 'processing' }).eq('id', meeting.id)
     }
@@ -63,22 +60,50 @@ export async function POST(req: NextRequest) {
     await supabase.from('meetings').update({ status: 'failed', ended_at: new Date().toISOString() }).eq('id', meeting.id)
   }
 
-  // ── recording.done (account-level Svix webhook) ──────────────────────────
-  // This fires when the recording is complete and ready for async transcription.
-  // payload: { event, data: { data: { code, ... }, recording: { id }, bot: { id } } }
-  else if (event === 'recording.done') {
+  // ── transcript.done (account-level Svix webhook) ─────────────────────────
+  // Fires when the transcript is ready to download via media_shortcuts.
+  // payload: { event, data: { data: { code, sub_code }, bot: { id }, transcript?: { id } } }
+  else if (event === 'transcript.done') {
     if (meeting.proactive_message_sent) return NextResponse.json({ ok: true })
 
-    const recordingId: string = payload.data?.recording?.id ?? ''
-    if (!recordingId) return NextResponse.json({ ok: true })
+    const key = process.env.RECALL_API_KEY
+    if (!key) return NextResponse.json({ ok: true })
 
-    // Update status and store recording_id for extraction
-    await supabase.from('meetings')
-      .update({ status: 'processing', ended_at: new Date().toISOString() })
-      .eq('id', meeting.id)
+    try {
+      // 1. Fetch bot to get download_url via media_shortcuts
+      const botRes = await fetch(`https://us-west-2.recall.ai/api/v1/bot/${botId}/`, {
+        headers: { Authorization: `Token ${key}` },
+      })
+      if (!botRes.ok) return NextResponse.json({ ok: true })
 
-    const { data: org } = await supabase.from('orgs').select('slug').eq('id', meeting.org_id).single()
-    waitUntil(extractMeetingAsync(meeting.id, org?.slug ?? '', recordingId))
+      const bot = await botRes.json()
+      const downloadUrl: string = bot.recordings?.[0]?.media_shortcuts?.transcript?.data?.download_url ?? ''
+
+      if (!downloadUrl) return NextResponse.json({ ok: true })
+
+      // 2. Download transcript: array of { participant: { name }, words: [{ text }] }
+      const dlRes = await fetch(downloadUrl)
+      if (!dlRes.ok) return NextResponse.json({ ok: true })
+
+      const rawSegments: Array<{ participant: { name: string }; words: Array<{ text: string }> }> = await dlRes.json()
+
+      // 3. Store segments in transcript_raw and update status
+      const segments = rawSegments.map((s) => ({
+        speaker: s.participant?.name ?? 'Unknown',
+        words: s.words ?? [],
+      }))
+
+      await supabase.from('meetings').update({
+        status: 'processing',
+        transcript_raw: segments,
+      }).eq('id', meeting.id)
+
+      // 4. Trigger async extraction
+      const { data: org } = await supabase.from('orgs').select('slug').eq('id', meeting.org_id).single()
+      waitUntil(extractMeetingAsync(meeting.id, org?.slug ?? ''))
+    } catch {
+      // Non-critical — log and continue
+    }
   }
 
   // ── transcript.data (per-bot realtime_endpoints webhook) ─────────────────
