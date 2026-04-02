@@ -234,18 +234,33 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
 
       // 3. Flatten transcript — fall back to Recall API if transcript_raw is empty
       let transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
-      if (!transcriptText && meeting.recall_bot_id && process.env.RECALL_API_KEY) {
-        try {
-          const res = await fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/transcript/`, {
-            headers: { Authorization: `Token ${process.env.RECALL_API_KEY}` },
-          })
-          if (res.ok) {
-            const segments: TranscriptSegment[] = await res.json()
-            transcriptText = flattenTranscript(segments)
+      console.log('[extraction] transcript_raw segments:', meeting.transcript_raw?.length ?? 0)
+      if (!transcriptText && meeting.recall_bot_id) {
+        const recallKey = process.env.RECALL_API_KEY
+        console.log('[extraction] RECALL_API_KEY present:', !!recallKey, 'botId:', meeting.recall_bot_id)
+        if (recallKey) {
+          try {
+            const recallUrl = `https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/transcript/`
+            console.log('[extraction] fetching transcript from Recall:', recallUrl)
+            const res = await fetch(recallUrl, {
+              headers: { Authorization: `Token ${recallKey}` },
+            })
+            console.log('[extraction] Recall transcript response status:', res.status)
+            if (res.ok) {
+              const segments: TranscriptSegment[] = await res.json()
+              console.log('[extraction] Recall returned segments:', segments.length)
+              transcriptText = flattenTranscript(segments)
+            } else {
+              const errText = await res.text()
+              console.log('[extraction] Recall transcript error:', errText)
+            }
+          } catch (e) {
+            console.log('[extraction] Recall fetch threw:', e)
           }
-        } catch { /* ignore — fall through to failed */ }
+        }
       }
       if (!transcriptText) {
+        console.log('[extraction] no transcript found — marking failed')
         await supabase.from('meetings').update({ status: 'failed' }).eq('id', meetingId)
         return
       }
