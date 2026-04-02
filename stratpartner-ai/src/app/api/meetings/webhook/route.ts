@@ -46,20 +46,21 @@ export async function POST(req: NextRequest) {
 
   if (!meeting) return NextResponse.json({ ok: true })
 
-  // ── bot.status_change (account-level Svix webhook) ──────────────────────
-  if (event === 'bot.status_change') {
-    // payload: { event, data: { data: { code, sub_code, updated_at }, bot: { id } } }
-    const code: string = payload.data?.data?.code ?? ''
-
-    if (code === 'joining_call') {
-      await supabase.from('meetings').update({ status: 'joining', started_at: new Date().toISOString() }).eq('id', meeting.id)
-    } else if (code === 'in_call_not_recording' || code === 'in_call_recording') {
-      await supabase.from('meetings').update({ status: 'in_progress' }).eq('id', meeting.id)
-    } else if (code === 'call_ended') {
-      await supabase.from('meetings').update({ status: 'processing', ended_at: new Date().toISOString() }).eq('id', meeting.id)
-    } else if (code === 'fatal') {
-      await supabase.from('meetings').update({ status: 'failed', ended_at: new Date().toISOString() }).eq('id', meeting.id)
+  // ── Bot status events (account-level Svix webhook) ───────────────────────
+  // Each status is its own event: bot.joining_call, bot.in_call_recording, etc.
+  if (event === 'bot.joining_call') {
+    await supabase.from('meetings').update({ status: 'joining', started_at: new Date().toISOString() }).eq('id', meeting.id)
+  } else if (event === 'bot.in_call_not_recording' || event === 'bot.in_call_recording') {
+    await supabase.from('meetings').update({ status: 'in_progress' }).eq('id', meeting.id)
+  } else if (event === 'bot.call_ended') {
+    await supabase.from('meetings').update({ status: 'processing', ended_at: new Date().toISOString() }).eq('id', meeting.id)
+  } else if (event === 'bot.done') {
+    // bot.done means recording is uploaded — recording.done will follow shortly and trigger extraction
+    if (meeting.status !== 'complete') {
+      await supabase.from('meetings').update({ status: 'processing' }).eq('id', meeting.id)
     }
+  } else if (event === 'bot.fatal') {
+    await supabase.from('meetings').update({ status: 'failed', ended_at: new Date().toISOString() }).eq('id', meeting.id)
   }
 
   // ── recording.done (account-level Svix webhook) ──────────────────────────
