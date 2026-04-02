@@ -31,7 +31,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
           status_changes: bot.status_changes,
           latest_status: bot.status_changes?.at(-1)?.code ?? null,
           realtime_endpoints: bot.recording_config?.realtime_endpoints,
-          recordings: bot.recordings?.map((r: { id: string; status: { code: string } }) => ({ id: r.id, status: r.status?.code })),
+          recordings: bot.recordings?.map((r: { id: string; status: { code: string }; started_at?: string; completed_at?: string }) => ({ id: r.id, status: r.status?.code, started_at: r.started_at, completed_at: r.completed_at })),
         }
       } else {
         recallError = `Recall API ${res.status}: ${await res.text()}`
