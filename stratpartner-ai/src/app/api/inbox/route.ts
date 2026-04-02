@@ -11,6 +11,7 @@ export interface InboxMessage {
   read_at: string | null
   session_id: string | null
   suggested_skills?: string[] | null
+  payload?: { meeting_id?: string } | null
 }
 
 export async function GET(req: NextRequest) {
@@ -25,11 +26,11 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('messages')
-    .select('id, content, channel, created_at, read_at, session_id, suggested_skills')
+    .select('id, content, channel, created_at, read_at, session_id, suggested_skills, payload')
     .eq('org_id', orgId)
     .eq('role', 'assistant')
     .not('channel', 'is', null)
-    .in('channel', ['agent', 'recall', 'heartbeat'])
+    .in('channel', ['agent', 'recall', 'heartbeat', 'skill_complete'])
     .order('read_at', { ascending: true, nullsFirst: true })
     .order('created_at', { ascending: false })
     .limit(50)

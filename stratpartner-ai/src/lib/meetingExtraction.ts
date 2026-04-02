@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getSupabaseAdmin } from './supabase'
 import { ingestFile } from './ingest'
 import { upsertOrgMemory, getOrgMemory } from './memory'
+import { SKILLS_LIST } from './skills'
 
 interface TranscriptWord {
   text: string
@@ -28,6 +29,11 @@ interface Decision {
   confidence: 'high' | 'medium' | 'low'
 }
 
+interface SuggestedSkill {
+  slug: string
+  reason: string
+}
+
 interface MeetingFindings {
   summary: string
   decisions: Decision[]
@@ -35,6 +41,7 @@ interface MeetingFindings {
   new_context: string[]
   open_questions: string[]
   memory_update: string
+  suggested_skills: SuggestedSkill[]
 }
 
 interface MeetingRow {
@@ -72,28 +79,20 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-const SKILL_LABELS: Record<string, string> = {
-  'competitive-audit': 'Competitive Audit',
-  'persona-build': 'Persona Build',
-  'meeting-brief': 'Meeting Brief',
-  'battlecard-generator': 'Battlecard Generator',
-  'icp-identification': 'ICP Identification',
-  'campaign-brief-generator': 'Campaign Brief',
-  'qbr-deck-builder': 'QBR Deck',
-  'sales-call-prep': 'Sales Call Prep',
-  'journey-map': 'Journey Map',
-  'biz-case': 'Business Case',
-}
-
-function collectSuggestedSkills(actionItems: ActionItem[]): string[] {
+function collectSuggestedSkills(findings: MeetingFindings): string[] {
+  // Use top-level suggested_skills from extraction (up to 5)
+  if (findings.suggested_skills?.length > 0) {
+    return findings.suggested_skills.slice(0, 5).map(s => s.slug)
+  }
+  // Fallback: pull from action items
   const seen = new Set<string>()
   const result: string[] = []
-  for (const item of actionItems) {
+  for (const item of findings.action_items ?? []) {
     if (item.suggested_skill_slug && !seen.has(item.suggested_skill_slug)) {
       seen.add(item.suggested_skill_slug)
       result.push(item.suggested_skill_slug)
     }
-    if (result.length >= 3) break
+    if (result.length >= 5) break
   }
   return result
 }
@@ -103,7 +102,7 @@ function buildProactiveBriefing(
   findings: MeetingFindings,
   orgSlug: string,
   tasksCreated: Array<{ task_id: string; title: string }>,
-  suggestedSkills: string[]
+  suggestedSkillSlugs: string[]
 ): string {
   const lines: string[] = []
   const title = meeting.title ?? 'Meeting'
@@ -142,22 +141,23 @@ function buildProactiveBriefing(
     findings.open_questions.forEach((q) => lines.push(`- ${q}`))
   }
 
-  if (suggestedSkills.length > 0) {
+  if (suggestedSkillSlugs.length > 0) {
     lines.push(``)
     lines.push(`### What to do next`)
-    lines.push(`Based on what I heard, here are the strategy skills most relevant right now:`)
-    suggestedSkills.forEach((slug) => {
-      const label = SKILL_LABELS[slug] ?? slug
-      const relevantItem = findings.action_items.find((a) => a.suggested_skill_slug === slug)
-      const context = relevantItem ? ` — ${relevantItem.text.slice(0, 80)}` : ''
-      lines.push(`- **${label}**${context}`)
+    lines.push(`Based on what I heard, I can activate these strategy skills for you:`)
+    suggestedSkillSlugs.forEach((slug) => {
+      const skill = SKILLS_LIST.find(s => s.slug === slug)
+      const label = skill?.name ?? slug
+      const suggestedSkill = findings.suggested_skills?.find(s => s.slug === slug)
+      const reason = suggestedSkill?.reason ?? skill?.description ?? ''
+      lines.push(`- **${label}**${reason ? ` — ${reason}` : ''}`)
     })
     lines.push(``)
-    lines.push(`Click a skill chip below to run it with this meeting as full context.`)
+    lines.push(`Activate a skill below to run it now with this meeting as context.`)
   }
 
   lines.push(``)
-  const sourcesNote = `I've added the transcript to your Sources so you can reference it in future chats.`
+  const sourcesNote = `I've added the transcript to your sources so you can reference it in future chats.`
   const tasksNote =
     tasksCreated.length > 0
       ? ` I've also created ${tasksCreated.length} task${tasksCreated.length > 1 ? 's' : ''} from the action items above.`
@@ -266,10 +266,11 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
       }
 
       // 4. Claude extraction
+      const skillCatalog = SKILLS_LIST.map(s => `- ${s.slug}: ${s.name} — ${s.description}`).join('\n')
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
       const extractionResponse = await anthropic.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        max_tokens: 2500,
         system: `You are StratPartner, a senior strategy advisor who attended a client meeting as a silent observer. Extract structured strategic intelligence from the transcript. Return ONLY valid JSON with no preamble or explanation.`,
         messages: [
           {
@@ -280,6 +281,9 @@ Duration: ${formatDuration(meeting.started_at, meeting.ended_at)}
 
 Full transcript:
 ${transcriptText}
+
+Available strategy skills:
+${skillCatalog}
 
 Extract strategic intelligence and return this exact JSON structure:
 {
@@ -293,13 +297,18 @@ Extract strategic intelligence and return this exact JSON structure:
       "owner": "Person responsible or 'unclear'",
       "due": "Timeframe mentioned or null",
       "suggested_agent_role": "researcher|persona-architect|journey-mapper|diagnostic|synthesis|delivery|null",
-      "suggested_skill_slug": "journey-map|persona-build|biz-case|prioritize|null"
+      "suggested_skill_slug": "use a slug from the skill catalog above or null"
     }
   ],
   "new_context": ["Fact or strategic context revealed in this meeting"],
   "open_questions": ["Question raised but not resolved"],
-  "memory_update": "Prose paragraph (max 300 words) of what should be added to or updated in the org strategic memory based on this meeting. Focus on: decisions made, priorities revealed, stakeholder dynamics, blockers surfaced, strategic direction changes."
-}`,
+  "memory_update": "Prose paragraph (max 300 words) of what should be added to or updated in the org strategic memory based on this meeting.",
+  "suggested_skills": [
+    { "slug": "exact-slug-from-catalog", "reason": "One sentence on why this skill is relevant to what was discussed" }
+  ]
+}
+
+For suggested_skills: pick the 5 most relevant skills from the catalog based on what was actually discussed. Be specific about why each skill is relevant.`,
           },
         ],
       })
@@ -316,6 +325,7 @@ Extract strategic intelligence and return this exact JSON structure:
           new_context: [],
           open_questions: [],
           memory_update: '',
+          suggested_skills: [],
         }
       }
 
@@ -337,7 +347,7 @@ Extract strategic intelligence and return this exact JSON structure:
 
       // 6. Create tasks from action items + collect suggested skills
       const tasksCreated = await createTasksFromActionItems(meeting, findings.action_items ?? [])
-      const suggestedSkills = collectSuggestedSkills(findings.action_items ?? [])
+      const suggestedSkills = collectSuggestedSkills(findings)
 
       // 7. Update org memory
       if (findings.memory_update) {
@@ -383,6 +393,7 @@ Extract strategic intelligence and return this exact JSON structure:
           channel: 'recall',
           project_id: meeting.project_id ?? null,
           suggested_skills: suggestedSkills,
+          payload: { meeting_id: meetingId },
         })
         .select('id')
         .single()

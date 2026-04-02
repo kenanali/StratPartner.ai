@@ -36,6 +36,11 @@ const CHANNEL_META: Record<string, ChannelMeta> = {
     icon: '💡',
     badgeClass: 'bg-amber-50 text-amber-700',
   },
+  skill_complete: {
+    label: 'Skill Complete',
+    icon: '✅',
+    badgeClass: 'bg-green-50 text-green-700',
+  },
 }
 
 function getChannelMeta(channel: string): ChannelMeta {
@@ -106,15 +111,19 @@ function renderMarkdown(text: string): string {
 interface ItemProps {
   message: InboxMessage
   orgSlug: string
+  orgId: string
   onRead: (id: string) => void
 }
 
-function InboxItem({ message, orgSlug, onRead }: ItemProps) {
+function InboxItem({ message, orgSlug, orgId, onRead }: ItemProps) {
   const [expanded, setExpanded] = useState(false)
+  const [activatingSkills, setActivatingSkills] = useState<Set<string>>(new Set())
+  const [activatedSkills, setActivatedSkills] = useState<Set<string>>(new Set())
   const isUnread = message.read_at === null
   const meta = getChannelMeta(message.channel)
   const preview = stripMarkdown(message.content)
   const truncated = preview.length > 300 ? preview.slice(0, 300) + '…' : preview
+  const meetingId = message.payload?.meeting_id
 
   async function handleExpand() {
     const next = !expanded
@@ -130,6 +139,23 @@ function InboxItem({ message, orgSlug, onRead }: ItemProps) {
       } catch {
         // non-critical, swallow
       }
+    }
+  }
+
+  async function handleActivateSkill(slug: string) {
+    if (!meetingId || activatingSkills.has(slug) || activatedSkills.has(slug)) return
+    setActivatingSkills(prev => new Set(prev).add(slug))
+    try {
+      await fetch('/api/skills/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingId, skillSlug: slug, orgId }),
+      })
+      setActivatedSkills(prev => new Set(prev).add(slug))
+    } catch {
+      // non-critical
+    } finally {
+      setActivatingSkills(prev => { const s = new Set(prev); s.delete(slug); return s })
     }
   }
 
@@ -194,19 +220,37 @@ function InboxItem({ message, orgSlug, onRead }: ItemProps) {
       {/* Footer actions (shown when expanded) */}
       {expanded && (
         <div className="px-5 pb-4 space-y-3">
-          {/* Skill chips for meeting briefings */}
+          {/* Skill activation chips for meeting briefings */}
           {message.channel === 'recall' && message.suggested_skills && message.suggested_skills.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {message.suggested_skills.slice(0, 3).map((slug) => (
-                <Link
-                  key={slug}
-                  href={`/chat/${orgSlug}?session=${message.session_id}&skill=/${slug}`}
-                  className="inline-flex items-center gap-1 rounded-full bg-violet-50 border border-violet-200 px-3 py-1 text-xs font-medium text-accent hover:bg-accent hover:text-white hover:border-accent transition-colors"
-                >
-                  <span>⚡</span>
-                  {slug}
-                </Link>
-              ))}
+            <div>
+              <p className="text-xs text-gray-400 mb-2">Activate a skill with this meeting as context:</p>
+              <div className="flex flex-wrap gap-2">
+                {message.suggested_skills.slice(0, 5).map((slug) => {
+                  const isActivating = activatingSkills.has(slug)
+                  const isActivated = activatedSkills.has(slug)
+                  return (
+                    <button
+                      key={slug}
+                      onClick={() => handleActivateSkill(slug)}
+                      disabled={isActivating || isActivated || !meetingId}
+                      className={[
+                        'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        isActivated
+                          ? 'bg-green-50 border-green-200 text-green-700 cursor-default'
+                          : isActivating
+                          ? 'bg-gray-100 border-gray-200 text-gray-400 cursor-wait'
+                          : 'bg-violet-50 border-violet-200 text-accent hover:bg-accent hover:text-white hover:border-accent cursor-pointer',
+                      ].join(' ')}
+                    >
+                      <span>{isActivated ? '✓' : isActivating ? '…' : '⚡'}</span>
+                      {isActivated ? `${slug} — running` : slug}
+                    </button>
+                  )
+                })}
+              </div>
+              {activatedSkills.size > 0 && (
+                <p className="text-xs text-green-600 mt-2">Skills are running — check back in your inbox shortly.</p>
+              )}
             </div>
           )}
           <div className="flex items-center gap-4">
@@ -330,6 +374,7 @@ export default function InboxClient({ orgId, orgSlug, initialMessages }: Props) 
                 key={message.id}
                 message={message}
                 orgSlug={orgSlug}
+                orgId={orgId}
                 onRead={handleRead}
               />
             ))}
