@@ -8,12 +8,9 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function POST(req: NextRequest) {
-  // 1. Read raw body for signature verification
   const rawBody = await req.text()
 
-  // 2. Verify signature
-  // Account-level webhooks use Svix (svix-signature header present)
-  // Per-bot realtime_endpoints webhooks are unsigned — accept them directly
+  // Account-level webhooks use Svix; per-bot realtime_endpoints are unsigned
   const isSvix = !!req.headers.get('svix-signature')
   if (isSvix && process.env.RECALL_WEBHOOK_SECRET) {
     const wh = new Webhook(process.env.RECALL_WEBHOOK_SECRET)
@@ -30,24 +27,20 @@ export async function POST(req: NextRequest) {
 
   const payload = JSON.parse(rawBody)
   const event: string = payload.event ?? ''
-  // Recall sends bot id at data.bot.id
   const botId: string = payload.data?.bot?.id ?? payload.data?.bot_id ?? ''
-  console.log('[webhook] event=', event, 'botId=', botId, 'segment keys=', payload.data?.transcript ? Object.keys(payload.data.transcript) : null)
 
   if (!botId) return NextResponse.json({ ok: true })
 
   const supabase = getSupabaseAdmin()
 
-  // Look up meeting by recall_bot_id
   const { data: meeting } = await supabase
     .from('meetings')
-    .select('id, org_id, status')
+    .select('id, org_id, status, proactive_message_sent')
     .eq('recall_bot_id', botId)
     .single()
 
   if (!meeting) return NextResponse.json({ ok: true })
 
-  // Get org slug for proactive briefing links
   const { data: org } = await supabase
     .from('orgs')
     .select('slug')
@@ -55,63 +48,41 @@ export async function POST(req: NextRequest) {
     .single()
   const orgSlug = org?.slug ?? ''
 
-  // 3. Handle events
   if (event === 'bot.status_change') {
-    // Recall sends status code at data.data.code
-    const status: string = payload.data?.data?.code ?? payload.data?.status?.code ?? ''
+    // Account-level webhook only — status code at data.code or data.data.code
+    const status: string = payload.data?.code ?? payload.data?.data?.code ?? payload.data?.status?.code ?? ''
 
     if (status === 'joining_call') {
-      await supabase
-        .from('meetings')
-        .update({ status: 'joining', started_at: new Date().toISOString() })
-        .eq('id', meeting.id)
+      await supabase.from('meetings').update({ status: 'joining', started_at: new Date().toISOString() }).eq('id', meeting.id)
     } else if (status === 'in_call_recording' || status === 'in_call_not_recording') {
       await supabase.from('meetings').update({ status: 'in_progress' }).eq('id', meeting.id)
     } else if (status === 'call_ended') {
-      await supabase
-        .from('meetings')
-        .update({ status: 'processing', ended_at: new Date().toISOString() })
-        .eq('id', meeting.id)
+      await supabase.from('meetings').update({ status: 'processing', ended_at: new Date().toISOString() }).eq('id', meeting.id)
     } else if (status === 'done') {
-      // 'done' fires after transcription is complete — best trigger for extraction
-      if (meeting.status !== 'complete') {
-        await supabase
-          .from('meetings')
-          .update({ status: 'processing', ended_at: meeting.status === 'in_progress' ? new Date().toISOString() : undefined })
-          .eq('id', meeting.id)
+      if (meeting.status !== 'complete' && !meeting.proactive_message_sent) {
+        await supabase.from('meetings').update({ status: 'processing' }).eq('id', meeting.id)
         waitUntil(extractMeetingAsync(meeting.id, orgSlug))
       }
     } else if (status === 'fatal') {
       await supabase.from('meetings').update({ status: 'failed' }).eq('id', meeting.id)
     }
+
   } else if (event === 'transcript.data') {
-    // Append transcript segment to transcript_raw
+    // Per-bot realtime webhook — append segment
     const segment = payload.data?.transcript
     if (segment) {
-      // Fetch current transcript_raw and append
-      const { data: current } = await supabase
-        .from('meetings')
-        .select('transcript_raw')
-        .eq('id', meeting.id)
-        .single()
-
+      const { data: current } = await supabase.from('meetings').select('transcript_raw').eq('id', meeting.id).single()
       const existing: unknown[] = Array.isArray(current?.transcript_raw) ? current.transcript_raw : []
-      await supabase
-        .from('meetings')
-        .update({ transcript_raw: [...existing, segment] })
-        .eq('id', meeting.id)
+      await supabase.from('meetings').update({ transcript_raw: [...existing, segment] }).eq('id', meeting.id)
     }
+
   } else if (event === 'transcript.complete') {
-    // Backup trigger — only extract if not already processing/complete
-    if (meeting.status !== 'complete' && meeting.status !== 'processing') {
-      await supabase
-        .from('meetings')
-        .update({ status: 'processing', ended_at: new Date().toISOString() })
-        .eq('id', meeting.id)
-      extractMeetingAsync(meeting.id, orgSlug)
+    // Fired when transcription is done — trigger extraction
+    if (meeting.status !== 'complete' && !meeting.proactive_message_sent) {
+      await supabase.from('meetings').update({ status: 'processing', ended_at: new Date().toISOString() }).eq('id', meeting.id)
+      waitUntil(extractMeetingAsync(meeting.id, orgSlug))
     }
   }
 
-  // Always respond 200 immediately
   return NextResponse.json({ ok: true })
 }

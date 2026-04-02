@@ -43,7 +43,7 @@ interface MeetingRow {
   project_id: string | null
   title: string | null
   platform: string | null
-  transcript_raw: TranscriptSegment[]
+  transcript_raw: TranscriptSegment[] | null
   started_at: string | null
   ended_at: string | null
   proactive_message_sent: boolean
@@ -223,7 +223,7 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
       // 1. Fetch meeting
       const { data: meeting } = await supabase
         .from('meetings')
-        .select('id, org_id, project_id, title, platform, transcript_raw, recall_bot_id, started_at, ended_at, proactive_message_sent')
+        .select('id, org_id, project_id, title, platform, transcript_raw, started_at, ended_at, proactive_message_sent')
         .eq('id', meetingId)
         .single()
 
@@ -232,35 +232,9 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
       // 2. Idempotency guard
       if (meeting.proactive_message_sent) return
 
-      // 3. Flatten transcript — fall back to Recall API if transcript_raw is empty
-      let transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
-      console.log('[extraction] transcript_raw segments:', meeting.transcript_raw?.length ?? 0)
-      if (!transcriptText && meeting.recall_bot_id) {
-        const recallKey = process.env.RECALL_API_KEY
-        console.log('[extraction] RECALL_API_KEY present:', !!recallKey, 'botId:', meeting.recall_bot_id)
-        if (recallKey) {
-          try {
-            const recallUrl = `https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/transcript/`
-            console.log('[extraction] fetching transcript from Recall:', recallUrl)
-            const res = await fetch(recallUrl, {
-              headers: { Authorization: `Token ${recallKey}` },
-            })
-            console.log('[extraction] Recall transcript response status:', res.status)
-            if (res.ok) {
-              const segments: TranscriptSegment[] = await res.json()
-              console.log('[extraction] Recall returned segments:', segments.length)
-              transcriptText = flattenTranscript(segments)
-            } else {
-              const errText = await res.text()
-              console.log('[extraction] Recall transcript error:', errText)
-            }
-          } catch (e) {
-            console.log('[extraction] Recall fetch threw:', e)
-          }
-        }
-      }
+      // 3. Flatten transcript from webhook-collected segments
+      const transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
       if (!transcriptText) {
-        console.log('[extraction] no transcript found — marking failed')
         await supabase.from('meetings').update({ status: 'failed' }).eq('id', meetingId)
         return
       }
