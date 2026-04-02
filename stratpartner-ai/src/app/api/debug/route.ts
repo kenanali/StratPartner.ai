@@ -4,6 +4,12 @@ import { getSupabaseAdmin } from '@/lib/supabase'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+async function tryUrl(url: string, key: string) {
+  const res = await fetch(url, { headers: { Authorization: `Token ${key}` } })
+  const body = await res.text()
+  return { status: res.status, body: body.slice(0, 500) }
+}
+
 export async function GET(req: NextRequest) {
   const meetingId = req.nextUrl.searchParams.get('meetingId')
   if (!meetingId) return NextResponse.json({ error: 'meetingId required' }, { status: 400 })
@@ -11,53 +17,29 @@ export async function GET(req: NextRequest) {
   const supabase = getSupabaseAdmin()
   const { data: meeting } = await supabase
     .from('meetings')
-    .select('id, status, recall_bot_id, transcript_raw')
+    .select('id, status, recall_bot_id')
     .eq('id', meetingId)
     .single()
 
   if (!meeting) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  const key = process.env.RECALL_API_KEY!
+  const botId = meeting.recall_bot_id
+  const recId = '429321d4-ef7c-4b23-aace-d880523bd186'
+  const base = 'https://us-west-2.recall.ai'
 
-  const recallKey = process.env.RECALL_API_KEY
-  if (!recallKey) {
-    return NextResponse.json({ error: 'RECALL_API_KEY not set', meeting })
-  }
-
-  // Fetch bot to get recording ID
-  const botRes = await fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/`, {
-    headers: { Authorization: `Token ${recallKey}` },
-  })
-  const bot = await botRes.json()
-  const recordingId = bot.recordings?.[0]?.id ?? null
-
-  // Try new v2 endpoint using recording ID
-  let v2TranscriptStatus = null
-  let v2TranscriptBody = null
-  if (recordingId) {
-    const v2Res = await fetch(`https://us-west-2.recall.ai/api/v2/recording/${recordingId}/transcript/`, {
-      headers: { Authorization: `Token ${recallKey}` },
-    })
-    v2TranscriptStatus = v2Res.status
-    v2TranscriptBody = (await v2Res.text()).slice(0, 2000)
-  }
-
-  // Also try the bot-level v2 endpoint
-  const v2BotRes = await fetch(`https://us-west-2.recall.ai/api/v2/bot/${meeting.recall_bot_id}/transcript/`, {
-    headers: { Authorization: `Token ${recallKey}` },
-  })
-  const v2BotTranscriptStatus = v2BotRes.status
-  const v2BotTranscriptBody = (await v2BotRes.text()).slice(0, 2000)
+  const results = await Promise.all([
+    tryUrl(`${base}/api/v1/recording/${recId}/transcript/`, key),
+    tryUrl(`${base}/api/v1/recordings/${recId}/transcript/`, key),
+    tryUrl(`${base}/api/v2/recording/${recId}/transcript/`, key),
+    tryUrl(`${base}/api/v2/recordings/${recId}/transcript/`, key),
+    tryUrl(`${base}/api/v1/bot/${botId}/transcript/?recording_id=${recId}`, key),
+  ])
 
   return NextResponse.json({
-    meeting: { id: meeting.id, status: meeting.status, recall_bot_id: meeting.recall_bot_id },
-    recording_id: recordingId,
-    bot_status_changes: bot.status_changes,
-    v2_recording_transcript: { status: v2TranscriptStatus, body: v2TranscriptBody },
-    v2_bot_transcript: { status: v2BotTranscriptStatus, body: v2BotTranscriptBody },
-    // Show what host header looks like (for webhook URL fix)
-    headers: {
-      host: req.headers.get('host'),
-      x_forwarded_host: req.headers.get('x-forwarded-host'),
-      x_forwarded_proto: req.headers.get('x-forwarded-proto'),
-    },
+    'v1/recording/{id}/transcript': results[0],
+    'v1/recordings/{id}/transcript': results[1],
+    'v2/recording/{id}/transcript': results[2],
+    'v2/recordings/{id}/transcript': results[3],
+    'v1/bot/{id}/transcript?recording_id': results[4],
   })
 }
