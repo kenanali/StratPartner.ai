@@ -43,6 +43,7 @@ interface MeetingRow {
   project_id: string | null
   title: string | null
   platform: string | null
+  recall_bot_id: string | null
   transcript_raw: TranscriptSegment[] | null
   started_at: string | null
   ended_at: string | null
@@ -224,7 +225,7 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
       // 1. Fetch meeting
       const { data: meeting } = await supabase
         .from('meetings')
-        .select('id, org_id, project_id, title, platform, transcript_raw, started_at, ended_at, proactive_message_sent')
+        .select('id, org_id, project_id, title, platform, recall_bot_id, transcript_raw, started_at, ended_at, proactive_message_sent')
         .eq('id', meetingId)
         .single()
 
@@ -233,8 +234,31 @@ export function extractMeetingAsync(meetingId: string, orgSlug: string): Promise
       // 2. Idempotency guard
       if (meeting.proactive_message_sent) return
 
-      // 3. Get transcript text from transcript_raw (pre-populated by transcript.done webhook)
-      const transcriptText = flattenTranscript(meeting.transcript_raw ?? [])
+      // 3. Get transcript — self-heal from Recall if DB has no real content
+      let segments: TranscriptSegment[] = Array.isArray(meeting.transcript_raw) ? meeting.transcript_raw : []
+      const hasRealWords = segments.some(s => Array.isArray(s.words) && s.words.length > 0)
+
+      if (!hasRealWords && meeting.recall_bot_id && process.env.RECALL_API_KEY) {
+        try {
+          const botRes = await fetch(`https://us-west-2.recall.ai/api/v1/bot/${meeting.recall_bot_id}/`, {
+            headers: { Authorization: `Token ${process.env.RECALL_API_KEY}` },
+          })
+          if (botRes.ok) {
+            const bot = await botRes.json()
+            const downloadUrl: string = bot.recordings?.[0]?.media_shortcuts?.transcript?.data?.download_url ?? ''
+            if (downloadUrl) {
+              const dlRes = await fetch(downloadUrl)
+              if (dlRes.ok) {
+                const raw: Array<{ participant: { name: string }; words: Array<{ text: string }> }> = await dlRes.json()
+                segments = raw.map((s) => ({ speaker: s.participant?.name ?? 'Unknown', words: s.words ?? [] }))
+                await supabase.from('meetings').update({ transcript_raw: segments }).eq('id', meetingId)
+              }
+            }
+          }
+        } catch { /* fall through to failed status */ }
+      }
+
+      const transcriptText = flattenTranscript(segments)
 
       if (!transcriptText) {
         await supabase.from('meetings').update({ status: 'failed' }).eq('id', meetingId)
