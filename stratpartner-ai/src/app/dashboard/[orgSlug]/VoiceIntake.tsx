@@ -92,7 +92,12 @@ export default function VoiceIntake({ orgId, orgSlug, isOpen, onClose }: Props) 
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vapi.on('message', (msg: any) => {
-        if (msg?.type === 'transcript' && msg?.transcript) {
+        if (msg?.type !== 'transcript' || msg?.role !== 'user') return
+        if (msg.transcriptType === 'partial') {
+          // Live preview only — don't commit yet
+          setTranscript((fullTranscript + ' ' + msg.transcript).trim())
+        } else if (msg.transcriptType === 'final' && msg.transcript) {
+          // Commit to accumulated transcript
           fullTranscript += ' ' + msg.transcript
           setTranscript(fullTranscript.trim())
         }
