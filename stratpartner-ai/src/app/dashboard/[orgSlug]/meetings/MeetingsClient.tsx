@@ -83,18 +83,13 @@ export default function MeetingsClient({ orgId, orgSlug, initialMeetings, projec
   const [toast, setToast] = useState<string | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Always poll — 5s when active meetings exist, 30s otherwise
-  const hasActiveMeetings = meetings.some((m) => !['complete', 'failed'].includes(m.status))
-
+  // Poll every 5s — simple, always on
   useEffect(() => {
-    const interval = hasActiveMeetings ? 5000 : 30000
-
     pollRef.current = setInterval(async () => {
       try {
         const res = await fetch(`/api/meetings?orgId=${orgId}`)
         if (res.ok) {
           const { meetings: updated } = await res.json()
-          // Only replace if API returns results — prevents empty-array flash on transient error
           if (Array.isArray(updated) && updated.length > 0) {
             setMeetings(updated)
           }
@@ -102,12 +97,12 @@ export default function MeetingsClient({ orgId, orgSlug, initialMeetings, projec
       } catch {
         // non-critical
       }
-    }, interval)
+    }, 5000)
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [hasActiveMeetings, orgId])
+  }, [orgId])
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
