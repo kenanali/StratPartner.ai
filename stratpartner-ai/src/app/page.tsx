@@ -401,63 +401,6 @@ export default function Home() {
           color: #666;
         }
 
-        /* ── PRICING ── */
-        .pricing-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 20px;
-        }
-
-        .pricing-card {
-          background: #fff;
-          border: 1px solid #e8e8e4;
-          border-radius: 12px;
-          padding: 28px 24px;
-        }
-
-        .pricing-card.featured {
-          background: #0f0f1a;
-          border-color: #6366f1;
-        }
-
-        .pricing-tier {
-          font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 1.5px;
-          text-transform: uppercase;
-          color: #6366f1;
-          margin-bottom: 12px;
-        }
-
-        .pricing-price {
-          font-size: 32px;
-          font-weight: 800;
-          color: #1a1a1a;
-          letter-spacing: -1px;
-          margin-bottom: 4px;
-        }
-
-        .pricing-card.featured .pricing-price { color: #fff; }
-
-        .pricing-period {
-          font-size: 12px;
-          color: #aaa;
-          margin-bottom: 16px;
-        }
-
-        .pricing-desc {
-          font-size: 13px;
-          line-height: 1.65;
-          color: #666;
-          padding-top: 16px;
-          border-top: 1px solid #f0f0ec;
-        }
-
-        .pricing-card.featured .pricing-desc {
-          color: #9ca3af;
-          border-top-color: #1e1e2e;
-        }
-
         /* ── FOOTER ── */
         .footer {
           background: #0f0f1a;
@@ -490,6 +433,137 @@ export default function Home() {
         }
 
         .footer-link:hover { color: #818cf8; }
+
+        /* ── MOBILE ── */
+        @media (max-width: 768px) {
+          .nav {
+            padding: 0 24px;
+          }
+
+          .hero {
+            padding: 48px 24px 44px;
+          }
+
+          .hero::before {
+            width: 240px;
+            height: 240px;
+            top: -40px;
+            right: -40px;
+          }
+
+          .wordmark {
+            margin-bottom: 28px;
+          }
+
+          .hero-headline {
+            font-size: 30px;
+            letter-spacing: -0.5px;
+            max-width: 100%;
+          }
+
+          .hero-sub {
+            font-size: 15px;
+            line-height: 1.7;
+            margin-bottom: 32px;
+            max-width: 100%;
+          }
+
+          .section {
+            padding: 44px 24px;
+          }
+
+          .problem-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
+          .problem-card {
+            padding: 22px 20px;
+          }
+
+          .solution-wrap {
+            grid-template-columns: 1fr;
+            gap: 32px;
+          }
+
+          .solution-text h2 {
+            font-size: 22px;
+          }
+
+          .skills-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+          }
+
+          .skill-card {
+            padding: 18px 14px;
+          }
+
+          .diff-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
+          .diff-card {
+            padding: 22px 20px;
+          }
+
+          .features-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 20px 24px;
+          }
+
+          .audience-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+
+          .audience-card {
+            padding: 22px 20px;
+          }
+
+          .footer {
+            padding: 32px 24px;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 20px;
+          }
+
+          .footer-meta {
+            flex-wrap: wrap;
+            gap: 12px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .nav {
+            padding: 0 16px;
+          }
+
+          .hero {
+            padding: 40px 16px 36px;
+          }
+
+          .hero-headline {
+            font-size: 26px;
+          }
+
+          .section {
+            padding: 36px 16px;
+          }
+
+          .skills-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .features-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .footer {
+            padding: 28px 16px;
+          }
+        }
 
         @media print {
           .nav { display: none; }
@@ -686,31 +760,6 @@ export default function Home() {
             <div className="audience-type">Primary</div>
             <div className="audience-title">Agency strategy teams</div>
             <div className="audience-body">10–50 person shops running multi-month client engagements across strategy, CX, and brand. Senior time is scarce and junior output is inconsistent. stratpartner.ai levels the team — so anyone can produce work that holds up in the room.</div>
-          </div>
-        </div>
-      </div>
-
-      {/* PRICING */}
-      <div className="section">
-        <div className="section-label">Pricing</div>
-        <div className="pricing-grid">
-          <div className="pricing-card">
-            <div className="pricing-tier">Solo</div>
-            <div className="pricing-price">$500</div>
-            <div className="pricing-period">per month</div>
-            <div className="pricing-desc">For individual consultants. Full skill library, meeting bot for up to 3 active projects, persistent project memory.</div>
-          </div>
-          <div className="pricing-card featured">
-            <div className="pricing-tier">Team</div>
-            <div className="pricing-price" style={{ color: '#818cf8' }}>$2,500</div>
-            <div className="pricing-period" style={{ color: '#555' }}>per month</div>
-            <div className="pricing-desc">For agency teams up to 5 seats. Shared project memory across the team, full skill access, meeting bot for unlimited active projects.</div>
-          </div>
-          <div className="pricing-card">
-            <div className="pricing-tier">Advisory</div>
-            <div className="pricing-price">$5–8k</div>
-            <div className="pricing-period">per month, retained</div>
-            <div className="pricing-desc">Tool access plus direct strategic partnership with Kenan Mir. For teams that want practitioner-level guidance on top of the platform.</div>
           </div>
         </div>
       </div>
